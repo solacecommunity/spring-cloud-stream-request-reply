@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ch.sbb.tms.capaopt</groupId>
+        <artifactId>spring-boot-library-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>spring-boot-starter-request-reply</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <description>spring boot starter project to provide request/reply functionality</description>
+
+    <dependencies>
+        <!-- Runtime dependencies: -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <!-- Test dependencies: -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.vintage</groupId>
+                    <artifactId>junit-vintage-engine</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+    </dependencies>
+
+    <scm>
+        <developerConnection>
+            scm:git:https://${git.username}:${git.password}@code.sbb.ch/scm/pt_tms_capaopt/spring-boot-starter-request-reply.git
+        </developerConnection><!--TODO: verify -->
+        <tag>HEAD</tag>
+    </scm>
+</project>
