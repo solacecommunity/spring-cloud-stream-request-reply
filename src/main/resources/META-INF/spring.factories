@@ -1,0 +1,2 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+  ch.sbb.tms.capaopt.springbootstarter.requestreply.RequestReplyAutoConfiguration

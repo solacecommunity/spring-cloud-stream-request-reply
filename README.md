@@ -1,17 +1,192 @@
 # spring-boot-starter-request-reply
+## Description
+This Spring Boot Starter provides request-reply functionality for spring cloud based projects.
 
-TODO:
-* add a description to the POM
-* verify the `<scm>` section of the POM
-* insert project description here
+The code is based on the original code created in the [ESTA Spring Cloud Stream Sample](https://code.sbb.ch/projects/TP_TMS_PLATTFORM/repos/springcloudstream-examples/browse).
 
+## Usage
+### Dependencies
+In order to be able to use the request/reply functionality
 
-This project requires the TMS CapaOpt codestyle,
-which is maintained in the [tms-intellij-settings](https://code.sbb.ch/projects/PT_TMS_CAPAOPT/repos/intellij-settings) repository.
-If you haven't done so already, configure it as a read-only settings repository:
+```xml
+<dependency>
+    <groupId>ch.sbb.tms.capaopt</groupId>
+    <artifactId>spring-boot-starter-request-reply</artifactId>
+</dependency>
+```
 
-`File > Settings > Tools > Settings Repository`
+### Configuration
+#### Sender / Receiver
+The Request/Reply Spring Boot Starter can be used both in requesting and replying services.
 
-Add `https://code.sbb.ch/scm/pt_tms_capaopt/intellij-settings.git` to your read-only sources.
+If used in requesting services, a default Solace Binder must be defined within property `spring.cloud.stream.requestreply.binderName` 
+in order for the `RequestReplyService` to be created and queues and exchanges to be initialized.
+In the following example the default Spricng Cloud Stream binder is used:
 
-Note that SSH repository-URLs don't work due to a bug in the settings repository feature.
+```yaml
+spring:
+  cloud:
+    stream:
+	  requestreply:
+	    binderName: ${spring.cloud.stream.defaultBinder}
+```
+
+If omitted, the library can still be used to offer receiving services helper methods to wrap response functions by means of the MessagingUtil, which then can be picked up through Spring Cloud Functions. e.g.:
+
+```java
+    @Bean
+    public Function<Message<String>, Message<String>> reverse() {
+        return MessagingUtil.wrap((value) -> new StringBuilder(value).reverse().toString());
+    }
+```
+
+#### Queues and Exchanges
+When creating the `RequestReplyService` (see above) the Spring Boot Starter creates both a topic and queue in Solace to receive responses on.
+These are equally named as defined through the environment variable `REQUEST_REPLY_QUEUE` and defaulting to `replies`. It is also possible to
+override the value by setting `spring.cloud.stream.requestreply.replyToQueueName` accordingly.
+
+All request/reply consumers are grouped with the name defined in environment variable `REQUEST_REPLY_GROUP_NAME` which defaults to `request-reply`.
+It is also possible to override the value by setting `spring.cloud.stream.requestreply.requestReplyGroupName` accordingly.
+
+Furthermore a Solace Binder must be defined for the `RequestReplyService` and queue and exchange to be created by populating
+`spring.cloud.stream.requestreply.binderName`. e.g.:
+
+```yaml
+spring:
+  cloud:
+    stream:
+	  requestreply:
+	    binderName: ${spring.cloud.stream.defaultBinder}
+		
+      defaultBinder: main_session
+
+      binders:
+        main_session:
+          type: solace
+          environment:
+            solace:
+              java:
+                host: ${SOLACE_HOSTS}
+                msgVpn: ${SOLACE_MSG_VPN}
+                clientUsername: ${SOLACE_USERNAME}
+                clientPassword: ${SOLACE_PASSWORD}
+                clientName: ${HOSTNAME}_${random.uuid}
+                connectRetries: 5
+                reconnectRetries: 3
+                connectRetriesPerHost: 2
+                reconnectRetryWaitInMillis: 3000
+                apiProperties:
+                  SUB_ACK_WINDOW_SIZE: 255
+                  PUB_ACK_WINDOW_SIZE: 255
+
+      solace:
+        bindings:
+          logger-in-0:
+            consumer:
+              provisionDurableQueue: true
+              queueRespectsMsgTtl: true
+```
+
+### API
+The request/reply functionality provided by this starter can be utilized by autowiring
+the `RequestReplyService` which offers  the following methods:
+
+- `ch.sbb.tms.capaopt.springbootstarter.requestreply.service.RequestReplyService.requestAndAwaitReply(Q request, String requestDestination, long timeOutInMs, Class<A> expectedClass)`
+  sends the given request to the given message channel, awaits the response and maps it to the provided class as a return value
+- `ch.sbb.tms.capaopt.springbootstarter.requestreply.service.RequestReplyService.requestReply(Q request, String requestDestination, String replyToDestination, long timeOutInMs)`
+  sends the given request to the given message channel and prepares the framework to await the response within the given time frame to send them back via the provided reply destination
+- `ch.sbb.tms.capaopt.springbootstarter.requestreply.service.RequestReplyService.requestReply(Q request, String requestDestination, Consumer<Message<?>> responseConsumer, long timeOutInMs`
+  sends the given request to the given message channel and prepares the framework to await the response within the given time frame to direct them at the consumer provided
+
+__Note:__
+- the `RequestReplyService` uses the spring integration argument resolver message converter
+  to convert between the data types of different message channels (see [Payload Type Conversion @ Spring Integration Documentation](https://docs.spring.io/spring-integration/docs/5.1.4.RELEASE/reference/html/#payload-type-conversion)).
+  In order to create custom converters, have a look at [Guide to Spring Type Conversions @ Baeldung](https://www.baeldung.com/spring-type-conversions) .
+- request channels that receive requests must pay respect to the correlation id set in either `IntegrationMessageHeaderAccessor.CORRELATION_ID` or `SolaceHeaders.CORRELATION_ID` to create respective responses<br/>
+  if you implement such functions on your own, you might use `ch.sbb.tms.capaopt.springbootstarter.requestreply.util.MessagingUtil` to wrap them
+- request channels that receive requests must pay respect to the reply channel set in either `MessageHeaders.REPLY_CHANNEL` or `SolaceHeaders.REPLY_TO` to direct respective responses to<br/>
+  if you implement such functions on your own, you might use `ch.sbb.tms.capaopt.springbootstarter.requestreply.util.MessagingUtil` to wrap them
+
+## Sample Application
+### Spring Boot Application
+The provided `ch.sbb.tms.capaopt.springbootstarter.requestreply.RequestReplyTestApplication` can be run on its own
+through Eclipse IDE against a real environment by setting the following environment variables:
+
+- `HOSTNAME` - your computers hostname to make connections identifiable in solace
+- `SOLACE_HOSTS` - solace host(s) to connect to
+- `SOLACE_MSG_VPN` - message vpn to connect to
+- `SOLACE_USERNAME` - username to be used for authentication at solace
+- `SOLACE_PASSWORD` - password to be used for authentication at solace
+- `SPRING_PROFILES_ACTIVE` - must be set to `localApp` for the respective `application.yaml` to be loaded
+e.g.:
+
+<pre>
+HOSTNAME=YourHostnameGoesHere
+SOLACE_HOSTS=tcps://mr-1a2o94jfecnn.messaging.solace.cloud:55443
+SOLACE_MSG_VPN=AaaBbbCccD-scsSample
+SOLACE_PASSWORD=demo
+SOLACE_USERNAME=demo
+SPRING_PROFILES_ACTIVE=localApp
+</pre>
+
+### Spring Cloud Functions
+Once started, the sample application provides the following Spring Cloud Functions, which are directly exposed to REST
+endpoints via `spring-cloud-starter-function-web`:
+
+- Function `/reverse` reverses a text message, e.g.:
+  
+  ```http
+  POST /reverse HTTP/1.1
+  
+  text to be reversed
+  ```
+
+- Consumer `/logger` directs posted text to console output
+  
+  ```http
+  POST /logger HTTP/1.1
+  
+  text to be logged
+  ```
+
+For these `spring-cloud-function` creates message channels named `reverse-in-0`, `reverse-out-0` respectively
+`logger-in-0` after having them exposed by setting the property `spring.cloud.function.definition=logger;reverse`
+in `application-localApp.yaml`.
+
+### Request/Reply-Endpoints
+`ch.sbb.tms.capaopt.springbootstarter.requestreply.controller.RequestReplyController` defines additional REST
+endpoints to verify request/reply functionality:
+
+- `/request/{requestTo}/reply/{replyTo}` sends the posted data to the given `requestTo` message channel and forwards the
+  received response to the given `replyTo` message channel.
+  
+  By addressing the message channels mentioned above, the following POST request reverses the posted text and directs
+  it to console logging:
+  
+  ```http
+  POST /request/reverse-in-0/reply/logger-in-0 HTTP/1.1
+  
+  text to be reversed and logged
+  ```
+- `/reverseText` synchroneously blocks the request whilst performing an asynchroneous request to the above mentioned
+  reverse function and awaiting its response, before returning it as a result:
+  
+    ```http
+  POST /reverseText HTTP/1.1
+  
+  text to be reversed
+  ```
+
+## Known issues and Open Points
+### Statefulness
+Since message relations are kept in memory, this starter is neither fail-safe nor scalable.
+
+More precisely:
+- If one instance of the service sends a message and another one recieves the response, these can not be related.
+- If a service dies, any relations are forgotten and replies can no longer be related to requests,
+  potentially resulting in message loss.
+
+## External Links
+- [Spring Cloud Stream Solace Samples]
+
+[Spring Cloud Stream Solace Samples]: https://solace.com/samples/solace-samples-spring/spring-cloud-stream/

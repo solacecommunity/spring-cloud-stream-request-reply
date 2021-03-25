@@ -1,4 +1,19 @@
 # Changelog
+All notable changes to this project will be documented in this file.
 
-This file should document new features, breaking changes and migration strategies
-for MAJOR and MINOR releases, starting from release 1.0.0
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## Unreleased
+
+## 1.0.0 - 2021-03-19
+### Changed
+- updated parent
+
+### Added
+- initial version according to [RCSPF-92822](https://issues.sbb.ch/browse/RCSPF-92822)
+
+### Removed
+_n/a_
+
+<hr/>

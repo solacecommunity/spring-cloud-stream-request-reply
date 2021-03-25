@@ -1,43 +1,77 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
 
-<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>ch.sbb.tms.capaopt</groupId>
+		<artifactId>releng-spring-boot-library-parent</artifactId>
+		<version>1.0.3</version>
+	</parent>
 
-    <parent>
-        <groupId>ch.sbb.tms.capaopt</groupId>
-        <artifactId>spring-boot-library-parent</artifactId>
-        <version>1.0.0</version>
-    </parent>
+	<artifactId>spring-boot-starter-request-reply</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>spring-boot-starter-request-reply</name>
+	<description>Spring Boot Starter project to provide request and reply functionality to Solace Spring Cloud Stream projects</description>
 
-    <artifactId>spring-boot-starter-request-reply</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <description>spring boot starter project to provide request/reply functionality</description>
+	<dependencies>
+		<!-- Spring Boot Starter -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-autoconfigure</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-configuration-processor</artifactId>
+			<optional>true</optional>
+		</dependency>
 
-    <dependencies>
-        <!-- Runtime dependencies: -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter</artifactId>
-        </dependency>
-        <!-- Test dependencies: -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.junit.vintage</groupId>
-                    <artifactId>junit-vintage-engine</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-    </dependencies>
+		<!-- Spring Cloud -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-stream</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-function-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-function-context</artifactId>
+		</dependency>
 
-    <scm>
-        <developerConnection>
-            scm:git:https://${git.username}:${git.password}@code.sbb.ch/scm/pt_tms_capaopt/spring-boot-starter-request-reply.git
-        </developerConnection><!--TODO: verify -->
-        <tag>HEAD</tag>
-    </scm>
+		<!-- Solace -->
+		<dependency>
+			<groupId>com.solace.spring.cloud</groupId>
+			<artifactId>spring-cloud-starter-stream-solace</artifactId>
+		</dependency>
+
+		<!-- test -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-function-web</artifactId>
+			<scope>test</scope>
+		</dependency>
+		
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-stream</artifactId>
+			<type>test-jar</type>
+			<scope>test</scope>
+			<classifier>test-binder</classifier>
+		</dependency>
+	</dependencies>
+
+	<scm>
+		<developerConnection>
+			scm:git:https://${git.username}:${git.password}@code.sbb.ch/scm/pt_tms_capaopt/spring-boot-starter-request-reply.git
+		</developerConnection>
+		<tag>HEAD</tag>
+	</scm>
 </project>
