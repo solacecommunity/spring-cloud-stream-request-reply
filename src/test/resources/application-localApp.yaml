@@ -51,4 +51,4 @@ spring:
 
 logging:
   level:
-    ch.sbb.tms.capaopt.springbootstarter.requestreply: DEBUG
+    ch.sbb.tms.platform.springbootstarter.requestreply: DEBUG
