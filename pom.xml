@@ -18,6 +18,9 @@
 		<java.version>11</java.version>
 		<solace-spring-cloud.version>2.0.0</solace-spring-cloud.version>
 		<spring-cloud.version>2020.0.2</spring-cloud.version>
+		<spring-cloud-stream.version>3.1.1</spring-cloud-stream.version>
+		<spring-cloud-function.version>3.1.1</spring-cloud-function.version>
+		<commons-logging.version>1.2</commons-logging.version>
 	</properties>
 
 	<dependencyManagement>
@@ -55,6 +58,13 @@
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-stream</artifactId>
+			<version>${spring-cloud-stream.version}</version>
+			<exclusions>
+				<exclusion>
+				    <groupId>org.springframework.cloud</groupId>
+				    <artifactId>spring-cloud-function-context</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
@@ -63,12 +73,34 @@
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-function-context</artifactId>
+			<version>${spring-cloud-function.version}</version>
+			<exclusions>
+				<exclusion>
+				    <groupId>org.springframework.cloud</groupId>
+				    <artifactId>spring-cloud-function-core</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<!-- Solace -->
 		<dependency>
 			<groupId>com.solace.spring.cloud</groupId>
 			<artifactId>spring-cloud-starter-stream-solace</artifactId>
+			<exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.springframework.cloud</groupId>
+                    <artifactId>spring-cloud-stream</artifactId>
+                </exclusion>
+            </exclusions>
+		</dependency>
+		<dependency>
+		    <groupId>commons-logging</groupId>
+		    <artifactId>commons-logging</artifactId>
+		    <version>${commons-logging.version}</version>
 		</dependency>
 
 		<!-- test -->
@@ -80,7 +112,14 @@
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-function-web</artifactId>
+			<version>${spring-cloud-function.version}</version>
 			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+				    <groupId>org.springframework.cloud</groupId>
+				    <artifactId>spring-cloud-function-context</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		
 		<dependency>
@@ -89,6 +128,13 @@
 			<type>test-jar</type>
 			<scope>test</scope>
 			<classifier>test-binder</classifier>
+			<version>${spring-cloud-stream.version}</version>
+			<exclusions>
+				<exclusion>
+				    <groupId>org.springframework.cloud</groupId>
+				    <artifactId>spring-cloud-function-context</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 	</dependencies>
 

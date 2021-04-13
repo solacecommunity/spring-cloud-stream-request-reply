@@ -27,8 +27,8 @@ In the following example the default Spricng Cloud Stream binder is used:
 spring:
   cloud:
     stream:
-	  requestreply:
-	    binderName: ${spring.cloud.stream.defaultBinder}
+	    requestreply:
+	      binderName: ${spring.cloud.stream.defaultBinder}
 ```
 
 If omitted, the library can still be used to offer receiving services helper methods to wrap response functions by means of the MessagingUtil, which then can be picked up through Spring Cloud Functions. e.g.:
