@@ -10,7 +10,7 @@
 
 	<groupId>ch.sbb.tms.platform</groupId>
 	<artifactId>spring-boot-starter-request-reply</artifactId>
-	<version>1.0.0</version>
+	<version>1.1.0-SNAPSHOT</version>
 	<name>spring-boot-starter-request-reply</name>
 	<description>Spring Boot Starter project to provide request and reply functionality to Solace Spring Cloud Stream projects</description>
 
