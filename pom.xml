@@ -12,7 +12,7 @@
 	<artifactId>spring-boot-starter-request-reply</artifactId>
 	<version>1.1.0-SNAPSHOT</version>
 	<name>spring-boot-starter-request-reply</name>
-	<description>Spring Boot Starter project to provide request and reply functionality to Solace Spring Cloud Stream projects</description>
+	<description>Spring Boot Starter project to provide request and reply functionality to Spring Cloud Stream projects</description>
 
 	<properties>
 		<java.version>11</java.version>
@@ -32,6 +32,7 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
+			
 			<dependency>
 				<groupId>com.solace.spring.cloud</groupId>
 				<artifactId>solace-spring-cloud-bom</artifactId>
@@ -39,6 +40,7 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
+			
 		</dependencies>
 	</dependencyManagement>
 
@@ -81,6 +83,18 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
+		
+		<!-- misc -->
+		<dependency>
+		    <groupId>commons-logging</groupId>
+		    <artifactId>commons-logging</artifactId>
+		    <version>${commons-logging.version}</version>
+		</dependency>
+		<dependency>
+		    <groupId>commons-beanutils</groupId>
+		    <artifactId>commons-beanutils</artifactId>
+		    <version>1.9.4</version>
+		</dependency>
 
 		<!-- Solace -->
 		<dependency>
@@ -97,11 +111,7 @@
                 </exclusion>
             </exclusions>
 		</dependency>
-		<dependency>
-		    <groupId>commons-logging</groupId>
-		    <artifactId>commons-logging</artifactId>
-		    <version>${commons-logging.version}</version>
-		</dependency>
+		
 
 		<!-- test -->
 		<dependency>

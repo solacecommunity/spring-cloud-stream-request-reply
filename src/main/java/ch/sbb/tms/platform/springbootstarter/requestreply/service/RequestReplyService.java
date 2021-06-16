@@ -4,34 +4,7 @@
 
 package ch.sbb.tms.platform.springbootstarter.requestreply.service;
 
-import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
-import ch.sbb.tms.platform.springbootstarter.requestreply.util.HeaderCorrelationIdParserStrategies;
-import ch.sbb.tms.platform.springbootstarter.requestreply.util.HeaderDestinationParserStrategies;
-import ch.sbb.tms.platform.springbootstarter.requestreply.util.MessagingUtil;
-import com.solace.spring.cloud.stream.binder.messaging.SolaceHeaders;
-import com.solace.spring.cloud.stream.binder.properties.SolaceConsumerProperties;
-import com.solacesystems.jcsmp.JCSMPFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.cloud.stream.binder.Binder;
-import org.springframework.cloud.stream.binder.BinderFactory;
-import org.springframework.cloud.stream.binder.BinderHeaders;
-import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
-import org.springframework.cloud.stream.function.StreamBridge;
-import org.springframework.integration.channel.PublishSubscribeChannel;
-import org.springframework.integration.support.MessageBuilder;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.MessageHeaders;
-import org.springframework.messaging.converter.MessageConverter;
-import org.springframework.scheduling.annotation.Async;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import static ch.sbb.tms.platform.springbootstarter.requestreply.util.CheckedExceptionWrapper.throwingUnchecked;
 
 import java.util.Map;
 import java.util.UUID;
@@ -39,57 +12,68 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static ch.sbb.tms.platform.springbootstarter.requestreply.util.CheckedExceptionWrapper.throwingUnchecked;
+import javax.validation.Valid;
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cloud.stream.binder.Binder;
+import org.springframework.cloud.stream.function.StreamBridge;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.springframework.integration.support.MessageBuilder;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.converter.MessageConverter;
+import org.springframework.scheduling.annotation.Async;
+
+import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties.Period;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.RequestReplyMessageHeaderSupportService;
 
 /**
  * The RequestReplyService takes care of asynchroneous request and reply messages, relating one to the other and allowing to wrap both as a synchroneous call.
- *
  */
-public class RequestReplyService implements InitializingBean {
+public class RequestReplyService implements ApplicationContextAware {
     private static final Logger LOG = LoggerFactory.getLogger(RequestReplyService.class);
     private static final ExecutorService REQUEST_REPLY_EXECUTOR = Executors.newCachedThreadPool();
     private static final Map<String, ResponseHandler> PENDING_RESPONSES = new ConcurrentHashMap<>();
+    static final AtomicReference<RequestReplyService> REQUEST_REPLY_SERVICE_REFERENCE = new AtomicReference<>(null);
 
     @Autowired
     private StreamBridge streamBridge;
 
     @Autowired
-    private RequestReplyProperties properties;
-
-    @Autowired
-    private BinderFactory binderFactory;
-
-    @Autowired
     @Qualifier("integrationArgumentResolverMessageConverter")
     private MessageConverter messageConverter;
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    @Override
-    public void afterPropertiesSet() throws Exception {
-        // create reply topic configured in properties
-        SolaceConsumerProperties solaceConsumerProperties = new SolaceConsumerProperties();
-        solaceConsumerProperties.setProvisionDurableQueue(true);
-        solaceConsumerProperties.setQueueRespectsMsgTtl(true);
+    @Autowired
+    private RequestReplyMessageHeaderSupportService messageHeaderSupportService;
 
-		LOG.debug("Fetching binder {}", properties.getBinderName());
-        Binder binder = binderFactory.getBinder(properties.getBinderName(), PublishSubscribeChannel.class);
-        MessageChannel mc = (message, timeout) -> {
-			LOG.trace("received message {}", message);
-            onReplyReceived(message);
-            return true;
-        };
-		LOG.debug("binding consumer to {}.{}", properties.getReplyToQueueName(), properties.getRequestReplyGroupName());
-		binder.bindConsumer( //
-				properties.getReplyToQueueName(), // topic to consume from
-				properties.getRequestReplyGroupName(), // consumer group for this app
-				mc, // handle incoming messages
-				new ExtendedConsumerProperties<>(solaceConsumerProperties) //
-		);
-		LOG.debug("done initializing RequestReplyService");
+    @Autowired
+    private RequestReplyBinderAdapterFactory binderAdapterFactory;
+
+    /**
+     * sends the given request to the given message channel, awaits the response and maps it to the provided class as a return value
+     * 
+     * @param <Q> question/request type
+     * @param <A> answer/response type
+     * @param request the request to be sent
+     * @param requestDestination the message channel name to send the request to
+     * @param expectedClass the class the response shall be mapped to
+     * @return a {@link CompletableFuture} which can be used to await and retrieve the response
+     */
+    public <Q, A> CompletableFuture<A> requestAndAwaitReply( //
+            Q request, //
+            @NotEmpty String requestDestination, //
+            Class<A> expectedClass //
+    ) {
+        return requestAndAwaitReply(request, requestDestination, binderAdapterFactory.getCachedAdapterForDefaultBinder(), expectedClass);
     }
 
     /**
@@ -99,19 +83,68 @@ public class RequestReplyService implements InitializingBean {
      * @param <A> answer/response type
      * @param request the request to be sent
      * @param requestDestination the message channel name to send the request to
-     * @param timeOutInMs the number of milliseconds after which to wait for the respective response
+     * @param expectedClass the class the response shall be mapped to
+     * @param binder the binder to prepare messages for
+     * @return a {@link CompletableFuture} which can be used to await and retrieve the response
+     */
+    public <Q, A> CompletableFuture<A> requestAndAwaitReply( //
+            Q request, //
+            @NotEmpty String requestDestination, //
+            Class<A> expectedClass, //
+            @NotNull Binder<?, ?, ?> binder //
+    ) {
+        return requestAndAwaitReply(request, requestDestination, binderAdapterFactory.getCachedAdapterForBinder(binder), expectedClass);
+    }
+
+    /**
+     * sends the given request to the given message channel, awaits the response and maps it to the provided class as a return value
+     * 
+     * @param <Q> question/request type
+     * @param <A> answer/response type
+     * @param request the request to be sent
+     * @param requestDestination the message channel name to send the request to
+     * @param expectedClass the class the response shall be mapped to
+     * @param binderName the binder to prepare messages for
+     * @return a {@link CompletableFuture} which can be used to await and retrieve the response
+     */
+    public <Q, A> CompletableFuture<A> requestAndAwaitReply( //
+            Q request, //
+            @NotEmpty String requestDestination, //
+            Class<A> expectedClass, //
+            @NotEmpty String binderName //
+    ) {
+        return requestAndAwaitReply(request, requestDestination, binderAdapterFactory.getCachedAdapterForBinder(binderName), expectedClass);
+    }
+
+    /**
+     * sends the given request to the given message channel, awaits the response and maps it to the provided class as a return value
+     * 
+     * @param <Q> question/request type
+     * @param <A> answer/response type
+     * @param request the request to be sent
+     * @param requestDestination the message channel name to send the request to
+     * @param requestReplyBinderAdapter binder specific strategy
      * @param expectedClass the class the response shall be mapped to
      * @return a {@link CompletableFuture} which can be used to await and retrieve the response
      */
-    public <Q, A> CompletableFuture<A> requestAndAwaitReply(Q request, @NotEmpty String requestDestination, @Min(1) long timeOutInMs,
-            Class<A> expectedClass) {
+    private <Q, A> CompletableFuture<A> requestAndAwaitReply( //
+            Q request, //
+            @NotEmpty String requestDestination, //
+            @NotNull RequestReplyBinderAdapter requestReplyBinderAdapter, //
+            Class<A> expectedClass //
+    ) {
         final AtomicReference<A> returnValue = new AtomicReference<>();
 
         @SuppressWarnings("unchecked")
         Consumer<Message<?>> responseConsumer = msg -> {
             returnValue.set((A) messageConverter.fromMessage(msg, expectedClass));
         };
-        return requestReply(request, requestDestination, responseConsumer, timeOutInMs).thenApply(none -> returnValue.get());
+        return requestReply( //
+                request, //
+                requestDestination, //
+                requestReplyBinderAdapter, //
+                responseConsumer //
+        ).thenApply(none -> returnValue.get());
     }
 
     /**
@@ -121,16 +154,67 @@ public class RequestReplyService implements InitializingBean {
      * @param request the request to be sent
      * @param requestDestination the message channel name to send the request to
      * @param replyToDestination the message channel to send any replies to
-     * @param timeOutInMs the number of milliseconds after which to wait for the respective response
+     * @return a {@link CompletableFuture} spanning the request and response await time
+     */
+    public <Q> CompletableFuture<Void> requestReply( //
+            @NotNull Q request, //
+            @NotEmpty String requestDestination, //
+            @NotNull String replyToDestination //
+    ) {
+        return requestReply( //
+                request, //
+                requestDestination, //
+                binderAdapterFactory.getCachedAdapterForDefaultBinder(), //
+                msg -> forwardMessage(msg, replyToDestination) //
+        );
+    }
+
+    /**
+     * sends the given request to the given message channel and prepares the framework to await the response within the given timeframe to send them back via the provided reply destination
+     * 
+     * @param <Q> question/request type
+     * @param request the request to be sent
+     * @param requestDestination the message channel name to send the request to
+     * @param replyToDestination the message channel to send any replies to
+     * @param binder the binder to prepare messages for
      * @return a {@link CompletableFuture} spanning the request and response await time
      */
     public <Q> CompletableFuture<Void> requestReply( //
             @NotNull Q request, //
             @NotEmpty String requestDestination, //
             @NotNull String replyToDestination, //
-            @Min(1) long timeOutInMs //
+            @NotNull Binder<?, ?, ?> binder //
     ) {
-        return requestReply(request, requestDestination, msg -> forwardMessage(msg, replyToDestination), timeOutInMs);
+        return requestReply( //
+                request, //
+                requestDestination, //
+                binderAdapterFactory.getCachedAdapterForBinder(binder), //
+                msg -> forwardMessage(msg, replyToDestination) //
+        );
+    }
+
+    /**
+     * sends the given request to the given message channel and prepares the framework to await the response within the given timeframe to send them back via the provided reply destination
+     * 
+     * @param <Q> question/request type
+     * @param request the request to be sent
+     * @param requestDestination the message channel name to send the request to
+     * @param replyToDestination the message channel to send any replies to
+     * @param binderName the binder to prepare messages for
+     * @return a {@link CompletableFuture} spanning the request and response await time
+     */
+    public <Q> CompletableFuture<Void> requestReply( //
+            @NotNull Q request, //
+            @NotEmpty String requestDestination, //
+            @NotNull String replyToDestination, //
+            @NotEmpty String binderName //
+    ) {
+        return requestReply( //
+                request, //
+                requestDestination, //
+                binderAdapterFactory.getCachedAdapterForBinder(binderName), //
+                msg -> forwardMessage(msg, replyToDestination) //
+        );
     }
 
     /**
@@ -139,48 +223,50 @@ public class RequestReplyService implements InitializingBean {
      * @param <Q> question/request type
      * @param request the request to be sent
      * @param requestDestination the message channel name to send the request to
+     * @param requestReplyBinderAdapter binder specific strategy
      * @param responseConsumer the consumer to handle incoming replies
-     * @param timeOutInMs the number of milliseconds after which to wait for the respective response
      * @return a {@link CompletableFuture} spanning the request and response await time
      */
-    public <Q> CompletableFuture<Void> requestReply( //
+    private <Q> CompletableFuture<Void> requestReply( //
             @NotNull Q request, //
             @NotEmpty String requestDestination, //
-            @NotNull Consumer<Message<?>> responseConsumer, //
-            @Min(1) long timeOutInMs //
+            @NotNull RequestReplyBinderAdapter requestReplyBinderAdapter, //
+            @NotNull Consumer<Message<?>> responseConsumer //
     ) {
         String correlationId = UUID.randomUUID().toString();
         LOG.debug("generated correlation Id {} for request directed to {} with content {}", correlationId, requestDestination, request);
 
-        Message<Q> message = MessageBuilder.withPayload(request) //
+        MessageBuilder<@NotNull Q> messageBuilder = MessageBuilder.withPayload(request);
+        requestReplyBinderAdapter.getMessagebuilderConfigurer() //
+                .adoptTo(messageBuilder) //
                 .setCorrelationId(correlationId) //
-                .setHeader(SolaceHeaders.CORRELATION_ID, correlationId) //
-                //.setHeader(MessageHeaders.REPLY_CHANNEL, properties.getReplyToQueueName()) //
-                .setHeader(SolaceHeaders.REPLY_TO, JCSMPFactory.onlyInstance().createTopic(properties.getReplyToQueueName())) //
-                .setHeader(BinderHeaders.TARGET_DESTINATION, requestDestination).build() //
+                .setReplyToTopic(requestReplyBinderAdapter.getReplyTopic()) //
+                .setDestination(requestDestination) //
         ;
-        return postRequest(correlationId, message, responseConsumer, timeOutInMs);
+
+        return postRequest(correlationId, messageBuilder.build(), responseConsumer, requestReplyBinderAdapter.getTimeoutPeriod());
     }
 
     private CompletableFuture<Void> postRequest( //
             String correlationId, //
             Message<?> message, //
             @NotNull Consumer<Message<?>> responseConsumer, //
-            @Min(1) long timeOutInMs //
+            @NotNull @Valid Period timeoutPeriod //
     ) {
         Runnable requestRunnable = () -> {
 			LOG.trace("Sending message {}", message);
-            streamBridge.send(HeaderDestinationParserStrategies.retrieve(message.getHeaders()), message);
+            String target = messageHeaderSupportService.getDestination(message);
+            streamBridge.send(target, message);
         };
 
-        return postRequest(correlationId, requestRunnable, responseConsumer, timeOutInMs);
+        return postRequest(correlationId, requestRunnable, responseConsumer, timeoutPeriod);
     }
 
     private CompletableFuture<Void> postRequest( //
             @NotEmpty String correlationId, //
             @NotNull Runnable requestRunnable, //
             @NotNull Consumer<Message<?>> responseConsumer, //
-            @Min(1) long timeOutInMs //
+            @NotNull @Valid Period timeoutPeriod //
     ) {
         ResponseHandler responseHandler = new ResponseHandler(responseConsumer);
         ResponseHandler previous = PENDING_RESPONSES.putIfAbsent(correlationId, responseHandler);
@@ -201,7 +287,7 @@ public class RequestReplyService implements InitializingBean {
         });
 
         return CompletableFuture.runAsync(runnable, REQUEST_REPLY_EXECUTOR) //
-                .orTimeout(timeOutInMs, TimeUnit.MILLISECONDS) //
+                .orTimeout(timeoutPeriod.getDuration(), timeoutPeriod.getUnit()) //
                 .whenCompleteAsync((reply, error) -> {
                     if (error != null) {
                         LOG.error("Failed to collect response for correlationId {}: {}: {}", correlationId, error.getClass(),
@@ -210,9 +296,8 @@ public class RequestReplyService implements InitializingBean {
                 }, REQUEST_REPLY_EXECUTOR);
     }
 
-    private void onReplyReceived(final Message<?> message) {
-        final MessageHeaders headers = message.getHeaders();
-        String correlationId = HeaderCorrelationIdParserStrategies.retrieve(headers);
+    void onReplyReceived(final Message<?> message) {
+        String correlationId = messageHeaderSupportService.getCorrelationId(message);
 
         if (correlationId == null) {
             LOG.error("Received unexpected message, without correlation id: {}", message);
@@ -221,7 +306,7 @@ public class RequestReplyService implements InitializingBean {
 
         ResponseHandler handler = PENDING_RESPONSES.get(correlationId);
         if (handler == null) {
-            LOG.error("Received unexpected message or maybe to late response: {}", message);
+            LOG.error("Received unexpected message or maybe too late response: {}", message);
         }
         else {
             handler.receive(message);
@@ -230,8 +315,17 @@ public class RequestReplyService implements InitializingBean {
 
 	@Async
     private void forwardMessage(final Message<?> originalMessage, String destination) {
-        Message<?> forwardMessage = MessagingUtil.forwardMessage(originalMessage, destination);
+        Message<?> forwardMessage = messageHeaderSupportService.forwardMessage(originalMessage, destination);
 		LOG.debug("forwarding message {} to {}", forwardMessage, destination);
         streamBridge.send(destination, forwardMessage);
+    }
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        synchronized (REQUEST_REPLY_SERVICE_REFERENCE) {
+            if (REQUEST_REPLY_SERVICE_REFERENCE.get() == null) {
+                REQUEST_REPLY_SERVICE_REFERENCE.set(applicationContext.getBean(RequestReplyService.class));
+            }
+        }
     }
 }

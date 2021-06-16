@@ -3,6 +3,7 @@ spring:
     function:
       definition: logger;reverse
     stream:
+      source: requestReply-mainSession-requests
       defaultBinder: main_session
       default:
         consumer.autoStartup: true
@@ -10,9 +11,6 @@ spring:
         group:  springboot-starter-request-reply
         consumer:
           concurrency: 2
-
-      requestreply:
-        binderName: ${spring.cloud.stream.defaultBinder}
 
       bindings:
         reverse-in-0:
@@ -22,11 +20,27 @@ spring:
         logger-in-0:
           destination: logging
           contentType: "text/plain"
+        requestReply-mainSession-requests-out-0:
+          binder: main_session
+          destination: requestreply/testapp/requests
+          contentType: "text/plain"
 
       binders:
         main_session:
           type: solace
           environment:
+            requestReply:
+              topic: requestreply/testapp/replies
+              group: ${spring.cloud.stream.default.group}
+              timeout:
+                duration: 1
+                unit: MINUTES
+              consumerProperties:
+                concurrency: 1
+                extension:
+                  provisionDurableQueue: true
+                  queueRespectsMsgTtl: true
+            
             solace:
               java:
                 host: ${SOLACE_HOSTS}
@@ -49,6 +63,11 @@ spring:
               provisionDurableQueue: true
               queueRespectsMsgTtl: true
 
+
 logging:
   level:
     ch.sbb.tms.platform.springbootstarter.requestreply: DEBUG
+    org.springframework.cloud.function: DEBUG
+    org.springframework.cloud.stream.function: DEBUG
+    com.solace.spring.cloud.stream.binder: DEBUG
+    

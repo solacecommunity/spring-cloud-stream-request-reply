@@ -1,6 +1,0 @@
-spring:
-  cloud:
-    stream:
-      requestreply:
-        replyToQueueName: ${REQUEST_REPLY_QUEUE:replies}
-        requestReplyGroupName: ${REQUEST_REPLY_GROUP_NAME:request-reply}

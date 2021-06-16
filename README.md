@@ -21,14 +21,14 @@ The Request/Reply Spring Boot Starter can be used both in requesting and replyin
 
 If used in requesting services, a default Solace Binder must be defined within property `spring.cloud.stream.requestreply.binderName`
 in order for the `RequestReplyService` to be created and queues and exchanges to be initialized.
-In the following example the default Spricng Cloud Stream binder is used:
+In the following example the default Spring Cloud Stream binder is used:
 
 ```yaml
 spring:
   cloud:
     stream:
-	    requestreply:
-	      binderName: ${spring.cloud.stream.defaultBinder}
+	  requestreply:
+	    binderName: ${spring.cloud.stream.defaultBinder}
 ```
 
 If omitted, the library can still be used to offer receiving services helper methods to wrap response functions by means of the MessagingUtil, which then can be picked up through Spring Cloud Functions. e.g.:
