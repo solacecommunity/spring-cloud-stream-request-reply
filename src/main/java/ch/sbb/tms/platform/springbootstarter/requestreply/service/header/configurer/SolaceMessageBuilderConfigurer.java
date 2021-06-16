@@ -9,9 +9,7 @@ import javax.validation.constraints.NotEmpty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.binder.Binder;
 import org.springframework.cloud.stream.binder.BinderHeaders;
-import org.springframework.core.annotation.Order;
 import org.springframework.integration.support.MessageBuilder;
-import org.springframework.stereotype.Service;
 
 import com.solace.spring.cloud.stream.binder.SolaceMessageChannelBinder;
 import com.solace.spring.cloud.stream.binder.messaging.SolaceHeaders;
@@ -19,8 +17,6 @@ import com.solacesystems.jcsmp.JCSMPFactory;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyBinderAdapterFactory;
 
-@Service
-@Order(200)
 public class SolaceMessageBuilderConfigurer implements MessageBuilderConfigurer {
     @Autowired
     private RequestReplyBinderAdapterFactory adapterFactory;

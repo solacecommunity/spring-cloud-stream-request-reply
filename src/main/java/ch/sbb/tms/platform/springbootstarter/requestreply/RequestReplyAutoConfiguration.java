@@ -13,12 +13,10 @@ import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.function.context.config.ContextFunctionCatalogAutoConfiguration;
 import org.springframework.cloud.stream.config.BinderFactoryAutoConfiguration;
 import org.springframework.cloud.stream.config.BindingBeansRegistrar;
 import org.springframework.cloud.stream.function.FunctionConfiguration;
-import org.springframework.cloud.stream.function.StreamFunctionProperties;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,19 +28,57 @@ import org.springframework.messaging.MessageChannel;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.config.BinderSpecificRequestReplyConfiguration;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyService;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.configurer.SolaceMessageBuilderConfigurer;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.SolaceHeaderParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.properties.SolaceConsumerPropertiesConfigurer;
 
 @Configuration
 @ConditionalOnClass({ MessageChannel.class })
 @Import({ BindingBeansRegistrar.class, BinderFactoryAutoConfiguration.class })
 @AutoConfigureAfter({ ContextFunctionCatalogAutoConfiguration.class })
 @AutoConfigureBefore({ FunctionConfiguration.class })
-@EnableConfigurationProperties(StreamFunctionProperties.class)
 @Order(Ordered.LOWEST_PRECEDENCE)
 public class RequestReplyAutoConfiguration implements ApplicationContextInitializer<GenericApplicationContext> {
+    private static final int SOLACE_CONFIGURERS_PRIORITY = 200;
+
     @Bean
     @ConditionalOnMissingBean
     public RequestReplyService requestReplyService() {
         return new RequestReplyService();
+    }
+
+    @Bean
+    @Order(SOLACE_CONFIGURERS_PRIORITY)
+    @ConditionalOnMissingBean
+    @ConditionalOnClass(name = { //
+            "com.solace.spring.cloud.stream.binder.SolaceMessageChannelBinder", //
+            "com.solace.spring.cloud.stream.binder.properties.SolaceConsumerProperties" //
+    })
+    public SolaceConsumerPropertiesConfigurer solaceConsumerPropertiesConfigurer() {
+        return new SolaceConsumerPropertiesConfigurer();
+    }
+
+    @Bean
+    @Order(SOLACE_CONFIGURERS_PRIORITY)
+    @ConditionalOnMissingBean
+    @ConditionalOnClass(name = { //
+            "com.solace.spring.cloud.stream.binder.messaging.SolaceHeaders", //
+            "com.solacesystems.jcsmp.Destination" //
+    })
+    public SolaceHeaderParser solaceHeaderParser() {
+        return new SolaceHeaderParser();
+    }
+
+    @Bean
+    @Order(SOLACE_CONFIGURERS_PRIORITY)
+    @ConditionalOnMissingBean
+    @ConditionalOnClass(name = { //
+            "com.solace.spring.cloud.stream.binder.SolaceMessageChannelBinder", //
+            "com.solace.spring.cloud.stream.binder.messaging.SolaceHeaders", //
+            "com.solacesystems.jcsmp.JCSMPFactory" //
+    })
+    public SolaceMessageBuilderConfigurer solaceMessageBuilderConfigurer() {
+        return new SolaceMessageBuilderConfigurer();
     }
 
     @Override

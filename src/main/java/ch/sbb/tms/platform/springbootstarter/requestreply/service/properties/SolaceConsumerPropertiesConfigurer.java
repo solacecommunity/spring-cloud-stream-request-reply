@@ -4,14 +4,10 @@ import java.util.Map;
 
 import org.springframework.cloud.stream.binder.Binder;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Service;
 
 import com.solace.spring.cloud.stream.binder.SolaceMessageChannelBinder;
 import com.solace.spring.cloud.stream.binder.properties.SolaceConsumerProperties;
 
-@Service
-@Order(200)
 public class SolaceConsumerPropertiesConfigurer
         implements BinderConsumerPropertiesConfigurer<ExtendedConsumerProperties<SolaceConsumerProperties>> {
 
