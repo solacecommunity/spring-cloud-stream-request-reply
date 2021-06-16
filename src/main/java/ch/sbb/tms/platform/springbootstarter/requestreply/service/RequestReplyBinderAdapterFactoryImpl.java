@@ -1,5 +1,7 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.service;
 
+import static ch.sbb.tms.platform.springbootstarter.requestreply.service.ReplyMessageChannel.CHANNEL_NAME;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cloud.stream.binder.AbstractMessageChannelBinder;
 import org.springframework.cloud.stream.binder.Binder;
 import org.springframework.cloud.stream.binder.BinderCustomizer;
@@ -58,7 +61,8 @@ public class RequestReplyBinderAdapterFactoryImpl
     private BindingServiceProperties bindingServiceProperties;
 
     @Autowired
-    private RequestReplyService requestReplyService;
+    @Qualifier(CHANNEL_NAME)
+    private MessageChannel replyMessageChannel;
 
     private Map<String, Binder<?, ?, ?>> binderByName = new HashMap<>();
     private Map<Binder<?, ?, ?>, String> binderNameByBinder = new HashMap<>();
@@ -147,14 +151,8 @@ public class RequestReplyBinderAdapterFactoryImpl
         // (in fact, even RabbitMQ, Kafka etc should work with this)
         if (binder instanceof AbstractMessageChannelBinder) {
             AbstractMessageChannelBinder messageChannelBinder = (AbstractMessageChannelBinder) binder;
-            MessageChannel mc = (message, timeout) -> {
-                LOG.trace("received message {}", message);
-                requestReplyService.onReplyReceived(message);
-                return true;
-            };
-
             ConsumerProperties consumerProperties = adapter.buildConsumerProperties(properties.getConsumerProperties());
-            messageChannelBinder.bindConsumer(properties.getTopic(), properties.getGroup(), mc, consumerProperties);
+            messageChannelBinder.bindConsumer(properties.getTopic(), properties.getGroup(), replyMessageChannel, consumerProperties);
         }
         else {
             throw new UnsupportedOperationException("Unsupported binder " + binder);

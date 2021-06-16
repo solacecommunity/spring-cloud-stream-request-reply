@@ -33,7 +33,7 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplySe
 @MessageEndpoint
 public class RequestReplyTestEndpoint {
     private static final Logger LOG = LoggerFactory.getLogger(RequestReplyTestEndpoint.class);
-    private static final long TEST_TIMEOUT_SECONDS = 5;
+    private static final long TEST_TIMEOUT_SECONDS = 300;
 
     /**
      * message channel name for delayer

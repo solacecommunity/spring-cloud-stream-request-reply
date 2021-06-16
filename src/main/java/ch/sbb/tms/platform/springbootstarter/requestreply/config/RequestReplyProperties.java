@@ -71,6 +71,21 @@ public class RequestReplyProperties {
         @NotNull
         TimeUnit unit = TimeUnit.MILLISECONDS;
 
+        /**
+         * default constructor
+         */
+        public Period() {
+            // nothing to do here
+        }
+
+        /**
+         * initializing constructor
+         */
+        public Period(@Min(1) Long duration, @NotNull TimeUnit unit) {
+            this.duration = duration;
+            this.unit = unit;
+        }
+
         public Long getDuration() {
             return duration;
         }
