@@ -33,6 +33,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.configurer.MessageBuilderConfigurer;
@@ -70,7 +71,15 @@ public class RequestReplyBinderAdapterFactoryImpl
 
     @Override
     public Binder<?, ?, ?> getDefaultBinder() {
-        return getBinder(bindingServiceProperties.getDefaultBinder());
+        if (StringUtils.hasText(bindingServiceProperties.getDefaultBinder())) {
+            return getBinder(bindingServiceProperties.getDefaultBinder());
+        }
+
+        if (binderNameByBinder.size() == 1) {
+            return binderNameByBinder.keySet().iterator().next();
+        }
+
+        throw new IllegalStateException("spring.cloud.stream.defaultBinder is not defined");
     }
 
     @Override
