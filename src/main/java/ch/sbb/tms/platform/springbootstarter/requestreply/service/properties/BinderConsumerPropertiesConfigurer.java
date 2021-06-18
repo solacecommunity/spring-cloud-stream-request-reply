@@ -23,17 +23,21 @@ public interface BinderConsumerPropertiesConfigurer<T extends ConsumerProperties
         consumerProperties.entrySet().stream().forEach(e -> mapToTarget(e.getKey(), e.getValue(), target));
     }
 
+    @SuppressWarnings("unchecked")
     private void mapToTarget(String propertyName, Object propertyValue, Object target) {
         try {
             if (propertyValue instanceof Map) {
-                Object newTarget = BeanUtils.getProperty(target, propertyName);
-                ((Map<String, Object>) propertyValue).entrySet().stream().forEach(e -> mapToTarget(e.getKey(), e.getValue(), newTarget));
+                if (propertyValue != null) {
+                    ((Map<String, Object>) propertyValue).entrySet().stream() //
+                            .forEach(e -> mapToTarget(propertyName + "." + e.getKey(), e.getValue(), target)) //
+                    ;
+                }
             }
             else {
                 BeanUtils.setProperty(target, propertyName, propertyValue);
             }
         }
-        catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+        catch (IllegalAccessException | InvocationTargetException e) {
             LOG.warn("Failed to set property {} to {} on target {}: {}", propertyName, propertyValue, target, e.getMessage());
         }
     }
