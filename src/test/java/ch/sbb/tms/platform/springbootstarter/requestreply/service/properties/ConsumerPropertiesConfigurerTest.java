@@ -4,18 +4,23 @@ import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.beanutils.BeanUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.cloud.stream.binder.Binder;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
@@ -27,8 +32,6 @@ import com.solace.spring.cloud.stream.binder.properties.SolaceConsumerProperties
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.BinderSpecificConfigurer;
 
 class ConsumerPropertiesConfigurerTest {
-    private static final TimeUnit[] TIMEUNITS = { TimeUnit.MILLISECONDS, TimeUnit.MINUTES, TimeUnit.NANOSECONDS };
-
     @ParameterizedTest
     @MethodSource("argumentsForPropertyConfigurerShouldApplyToProperBinder")
     void propertyConfigurerShouldApplyToProperBinder( //
@@ -54,6 +57,7 @@ class ConsumerPropertiesConfigurerTest {
         );
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     void operationOnNullShouldNotThrowException() {
         SolaceConsumerPropertiesConfigurer propertiesConfigurer = new SolaceConsumerPropertiesConfigurer();
@@ -66,6 +70,20 @@ class ConsumerPropertiesConfigurerTest {
         assertDoesNotThrow(() -> propertiesConfigurer.populateProperties(propertiesMap, null));
 
         verifyNoInteractions(propertiesMap, targetProperties);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void exceptionsDuringMappingShouldBeSilentlySwallowed() {
+        Map<String, Object> propertiesMap = Map.of("whatever", "doesn't matter", "dunno", "get it done");
+
+        try (MockedStatic<BeanUtils> utilities = Mockito.mockStatic(BeanUtils.class)) {
+            utilities.when(() -> BeanUtils.setProperty(any(), any(), any())).thenThrow(IllegalAccessException.class,
+                    InvocationTargetException.class);
+            assertNotNull(new SolaceConsumerPropertiesConfigurer().buildConsumerProperties(propertiesMap));
+
+            utilities.verify(times(2), () -> BeanUtils.setProperty(any(), any(), any()));
+        }
     }
 
     @Test

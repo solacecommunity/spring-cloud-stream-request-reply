@@ -21,8 +21,6 @@ public class RequestReplyProperties {
 
     public static final String REPLIES_POSTFIX = "replies";
 
-    private static final String FORMAT = "%s-%s";
-
     private String topic;
 
     @NotNull

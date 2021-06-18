@@ -12,8 +12,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.validation.constraints.NotNull;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -45,8 +43,6 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.service.properties.Bin
 @Service
 public class RequestReplyBinderAdapterFactoryImpl
         implements ApplicationContextAware, RequestReplyBinderAdapterFactory, BinderCustomizer {
-    private static final Logger LOG = LoggerFactory.getLogger(RequestReplyBinderAdapterFactoryImpl.class);
-
     static final AtomicReference<RequestReplyBinderAdapterFactoryImpl> REQUEST_REPLY_BINDER_ADAPTER_FACTORY_REFERENCE = new AtomicReference<>(
             null);
 
@@ -71,8 +67,9 @@ public class RequestReplyBinderAdapterFactoryImpl
 
     @Override
     public Binder<?, ?, ?> getDefaultBinder() {
-        if (StringUtils.hasText(bindingServiceProperties.getDefaultBinder())) {
-            return getBinder(bindingServiceProperties.getDefaultBinder());
+        String defaultBinder = bindingServiceProperties.getDefaultBinder();
+        if (StringUtils.hasText(defaultBinder)) {
+            return getBinder(defaultBinder);
         }
 
         if (binderNameByBinder.size() == 1) {

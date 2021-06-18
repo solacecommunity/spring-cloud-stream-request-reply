@@ -10,7 +10,6 @@ import java.util.concurrent.Future;
 import javax.validation.constraints.NotEmpty;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,12 +22,10 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplySe
 @RestController
 public class RequestReplyController {
     private RequestReplyService requestReplyService;
-    private StreamBridge streamBridge;
 
     @Autowired
-    public RequestReplyController(RequestReplyService requestReplyService, StreamBridge streamBridge) {
+    public RequestReplyController(RequestReplyService requestReplyService) {
         this.requestReplyService = requestReplyService;
-        this.streamBridge=streamBridge;
     }
 
     @PostMapping("/request/{requestTo}/reply/{replyTo}")

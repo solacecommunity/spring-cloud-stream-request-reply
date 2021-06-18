@@ -4,23 +4,23 @@
 
 package ch.sbb.tms.platform.springbootstarter.requestreply.util;
 
-import static ch.sbb.tms.platform.springbootstarter.requestreply.util.CheckedExceptionWrapper.throwingUnchecked;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import ch.sbb.tms.platform.springbootstarter.requestreply.exception.RequestReplyException;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CheckedExceptionWrapperTest {
+import ch.sbb.tms.platform.springbootstarter.requestreply.exception.RequestReplyException;
+
+class CheckedExceptionWrapperTest {
     private static final Logger LOG = LoggerFactory.getLogger(CheckedExceptionWrapperTest.class);
 
     @Test
-    public void throwingUncheckedFunctionShouldSucceed() {
+    void throwingUncheckedFunctionShouldSucceed() {
         Function<String, Long> fn = CheckedExceptionWrapper.throwingUnchecked(Long::valueOf);
 
         assertEquals(Long.valueOf(2), fn.apply("2"));
@@ -36,7 +36,7 @@ public class CheckedExceptionWrapperTest {
     }
 
     @Test
-    public void throwingUncheckedSupplierShouldSucceed() {
+    void throwingUncheckedSupplierShouldSucceed() {
         Supplier<Long> supplier = CheckedExceptionWrapper.throwingUnchecked(() -> Long.valueOf("2"));
         assertEquals(Long.valueOf(2), supplier.get());
 
@@ -52,7 +52,7 @@ public class CheckedExceptionWrapperTest {
     }
 
     @Test
-    public void throwingUncheckedRunnableShouldSucceed() {
+    void throwingUncheckedRunnableShouldSucceed() {
         Runnable runnable = CheckedExceptionWrapper.throwingUnchecked(() -> LOG.trace(Long.valueOf("2").toString()));
         runnable.run();
 

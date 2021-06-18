@@ -10,8 +10,10 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.
 @Service
 @Order(Ordered.LOWEST_PRECEDENCE)
 public class HttpHeaderParser implements MessageHeaderCorrelationIdParser {
+    public static final String HTTP_HEADER_CORRELATION_ID = "X-Correlation-ID";
+
     @Override
     public String getCorrelationId(MessageHeaders headers) {
-        return headers.get("X-Correlation-ID", String.class);
+        return headers.get(HTTP_HEADER_CORRELATION_ID, String.class);
     }
 }

@@ -27,11 +27,9 @@ public interface BinderConsumerPropertiesConfigurer<T extends ConsumerProperties
     private void mapToTarget(String propertyName, Object propertyValue, Object target) {
         try {
             if (propertyValue instanceof Map) {
-                if (propertyValue != null) {
                     ((Map<String, Object>) propertyValue).entrySet().stream() //
                             .forEach(e -> mapToTarget(propertyName + "." + e.getKey(), e.getValue(), target)) //
                     ;
-                }
             }
             else {
                 BeanUtils.setProperty(target, propertyName, propertyValue);
