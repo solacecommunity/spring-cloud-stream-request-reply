@@ -60,7 +60,7 @@ The Request/Reply Spring Boot Starter can operate on multiple binders at a time 
 The following `requestReply` properties are used to configure a reply consumer for a binder:
 
 - `topic` _Required, Default: null_
-  This topic will be used to listen for and receive replies at the particular binder.
+  This topic will be used to listen for and receive replies at the particular binder. If the topic is not provided, no binder will be created.
 - `group` _Optional, Default: null_
   This group will be sent to the binder during the binding process and is otherwise not of interest for the service. Note that an exception will be thrown in case the `consumerProperties` are configured as `partitioned` but the group is null.
 - `timeout` _Optional, Default: 500 MILLISECONDS_
@@ -209,7 +209,7 @@ public class RequestReplyController {
 
         log.info("Request " + reading);
 
-        // Send request response and wait for answer for max 2sec for answer.
+        // Send request response and wait for answer at most for the duration as configured for the binding
         Future<SensorReading> response = requestReplyService.requestAndAwaitReply(
                 reading,
                 "last_value/temperature/celsius/" + location,
@@ -269,9 +269,7 @@ public class PingPongConfig {
 
   @Bean
   @Autowired
-  public Function<Message<SensorRequest>, Message<SensorReading>> responseToRequest( //
-      RequestReplyMessageHeaderSupportService headerSupport //
-  ) {
+  public Function<Message<SensorRequest>, Message<SensorReading>> responseToRequest(RequestReplyMessageHeaderSupportService headerSupport) {
     return headerSupport.wrap((readingIn) -> { // Add correction, target destination to response msg.
       log.info(readingIn);
 
