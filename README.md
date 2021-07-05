@@ -60,7 +60,7 @@ The Request/Reply Spring Boot Starter can operate on multiple binders at a time 
 The following `requestReply` properties are used to configure a reply consumer for a binder:
 
 - `topic` _Required, Default: null_
-  This topic will be used to listen for and receive replies at the particular binder. If the topic is not provided, no binder will be created.
+  This topic will be used to listen for and receive replies at the particular binder. If the topic is not provided, no request/reply adapter will be created for the respective binder since it is unclear where to listen for replies.
 - `group` _Optional, Default: null_
   This group will be sent to the binder during the binding process and is otherwise not of interest for the service. Note that an exception will be thrown in case the `consumerProperties` are configured as `partitioned` but the group is null.
 - `timeout` _Optional, Default: 500 MILLISECONDS_
