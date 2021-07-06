@@ -4,7 +4,10 @@
 
 package ch.sbb.tms.platform.springbootstarter.requestreply.controller;
 
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+
+import javax.validation.constraints.NotEmpty;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -14,10 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.validation.constraints.NotEmpty;
-
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyService;
 
 @RestController
 public class RequestReplyController {
@@ -35,7 +35,7 @@ public class RequestReplyController {
             @PathVariable(value = "requestTo") @NotEmpty String requestTo, //
             @PathVariable(value = "replyTo") @NotEmpty String replyTo //
     ) {
-        requestReplyService.requestReply(data, requestTo, replyTo, 2000);
+        requestReplyService.requestReply(data, requestTo, replyTo);
     }
 
     @PostMapping("/reverseText")
@@ -43,7 +43,7 @@ public class RequestReplyController {
             @RequestHeader(required = false) HttpHeaders headers, //
             @RequestBody String data //
     ) throws InterruptedException, ExecutionException {
-        Future<String> response = requestReplyService.requestAndAwaitReply(data, "reverse-in-0", 2000, String.class);
+        Future<String> response = requestReplyService.requestAndAwaitReply(data, "requestReply-mainSession-requests-out-0", String.class);
         return response.get();
     }
 }

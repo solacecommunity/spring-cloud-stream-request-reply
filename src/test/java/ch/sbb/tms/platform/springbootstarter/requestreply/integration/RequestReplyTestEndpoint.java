@@ -14,7 +14,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,11 +27,13 @@ import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyService;
+
 @Component
 @MessageEndpoint
 public class RequestReplyTestEndpoint {
     private static final Logger LOG = LoggerFactory.getLogger(RequestReplyTestEndpoint.class);
-    private static final long TEST_TIMEOUT_SECONDS = 5;
+    private static final long TEST_TIMEOUT_SECONDS = 300;
 
     /**
      * message channel name for delayer

@@ -4,13 +4,14 @@
 
 package ch.sbb.tms.platform.springbootstarter.requestreply;
 
-import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyService;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.integration.IntegrationMessageHeaderAccessor;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.support.MessageBuilder;
+import static ch.sbb.tms.platform.springbootstarter.requestreply.integration.RequestReplyTestEndpoint.MC_REVERSE_IN;
+import static ch.sbb.tms.platform.springbootstarter.requestreply.integration.RequestReplyTestEndpoint.MC_SUCCESS_CHANNEL;
+import static ch.sbb.tms.platform.springbootstarter.requestreply.util.CheckedExceptionWrapper.throwingUnchecked;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.util.ReflectionTestUtils.invokeMethod;
 
 import java.util.List;
 import java.util.UUID;
@@ -21,31 +22,21 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static ch.sbb.tms.platform.springbootstarter.requestreply.integration.RequestReplyTestEndpoint.MC_REVERSE_IN;
-import static ch.sbb.tms.platform.springbootstarter.requestreply.integration.RequestReplyTestEndpoint.MC_SUCCESS_CHANNEL;
-import static ch.sbb.tms.platform.springbootstarter.requestreply.util.CheckedExceptionWrapper.throwingUnchecked;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.springframework.test.util.ReflectionTestUtils.invokeMethod;
-import static org.springframework.util.StringUtils.hasText;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.integration.IntegrationMessageHeaderAccessor;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
+
+import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties.Period;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyService;
 
 class RequestReplyIT extends AbstractRequestReplyIT {
     private static final String MESSAGE = "Hier könnte Ihre Werbung stehen!";
     private static final String MESSAGE_REVERSED = "!nehets gnubreW erhI etnnök reiH";
 
     @Autowired
-    private RequestReplyProperties requestReplyConfig;
-
-    @Autowired
     private RequestReplyService requestReplyService;
-
-    @Test
-    void contextLoadsAndConfigurationShouldBeInitializedProperly() {
-        assertNotNull(requestReplyConfig);
-        assertTrue(hasText(requestReplyConfig.getRequestReplyGroupName()));
-    }
 
     @Test
     void submitRequestAndRelateReplyInTimeShouldSucceed() throws Exception {
@@ -65,8 +56,9 @@ class RequestReplyIT extends AbstractRequestReplyIT {
             ref.set(uuid);
         };
         
+        Period timeoutPeriod = new Period(timeoutInMs * 2, TimeUnit.MILLISECONDS);
         CompletableFuture<Void> future = invokeMethod(requestReplyService, "postRequest", //
-                correlationId, requestRunnable, responseConsumer, timeoutInMs * 2);
+                correlationId, requestRunnable, responseConsumer, timeoutPeriod);
 
         future.get(); // await completion
         assertEquals(uuid, ref.get());
@@ -74,7 +66,7 @@ class RequestReplyIT extends AbstractRequestReplyIT {
 
     @Test
     void resubmitRequestShouldThrowExceptionWhilstCompletingFirstRequest() throws Exception {
-        long timeoutInMs = 500;
+        Long timeoutInMs = 500l;
 
         UUID uuid = UUID.randomUUID();
         String correlationId = uuid.toString();
@@ -93,10 +85,11 @@ class RequestReplyIT extends AbstractRequestReplyIT {
             throw new IllegalStateException();
         };
 
+        Period timeoutPeriod = new Period(timeoutInMs * 2, TimeUnit.MILLISECONDS);
         CompletableFuture<Void> future1 = invokeMethod(requestReplyService, "postRequest", //
-                correlationId, requestRunnable, responseConsumer, timeoutInMs * 2);
+                correlationId, requestRunnable, responseConsumer, timeoutPeriod);
         assertThrows(IllegalArgumentException.class, () -> invokeMethod(requestReplyService, "postRequest", //
-                correlationId, requestRunnable, exceptionalConsumer, timeoutInMs * 2));
+                correlationId, requestRunnable, exceptionalConsumer, timeoutPeriod));
 
         future1.get(); // await completion
         assertEquals(uuid, ref.get());
@@ -120,8 +113,9 @@ class RequestReplyIT extends AbstractRequestReplyIT {
             ref.set(uuid);
         };
 
+        Period timeoutPeriod = new Period(timeoutInMs / 2, TimeUnit.MILLISECONDS);
         CompletableFuture<Void> future = invokeMethod(requestReplyService, "postRequest", //
-                correlationId, requestRunnable, responseConsumer, timeoutInMs / 2);
+                correlationId, requestRunnable, responseConsumer, timeoutPeriod);
 
         try {
             future.get();
@@ -137,12 +131,12 @@ class RequestReplyIT extends AbstractRequestReplyIT {
         UUID uuid = UUID.randomUUID();
         Message<UUID> msg = MessageBuilder.withPayload(uuid).setHeader(IntegrationMessageHeaderAccessor.CORRELATION_ID, uuid.toString())
                 .build();
-        invokeMethod(requestReplyService, "onReplyReceived", msg);
+        assertDoesNotThrow(() -> invokeMethod(requestReplyService, "onReplyReceived", msg));
     }
 
     @Test
     void requestAndAwaitReplyShouldSucceed() throws Exception {
-        CompletableFuture<String> future = requestReplyService.requestAndAwaitReply(MESSAGE, MC_REVERSE_IN, 500, String.class);
+        CompletableFuture<String> future = requestReplyService.requestAndAwaitReply(MESSAGE, MC_REVERSE_IN, String.class);
         assertEquals(MESSAGE_REVERSED, future.get());
     }
 
@@ -150,7 +144,7 @@ class RequestReplyIT extends AbstractRequestReplyIT {
     void requestAndForwardReplyShouldSucceed() throws Exception {
         testEndpoint.prepareForMessages(1);
 
-        CompletableFuture<Void> future = requestReplyService.requestReply(MESSAGE, MC_REVERSE_IN, MC_SUCCESS_CHANNEL, 500);
+        CompletableFuture<Void> future = requestReplyService.requestReply(MESSAGE, MC_REVERSE_IN, MC_SUCCESS_CHANNEL);
         future.get(); // await request completion
 
         // check result
