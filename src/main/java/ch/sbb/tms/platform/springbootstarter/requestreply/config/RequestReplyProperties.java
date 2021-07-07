@@ -63,8 +63,10 @@ public class RequestReplyProperties {
     }
 
     public static class Period {
+        private static final @Min(1) Long DEFAULT_TIMEOUT_MILLIS = 500L;
+
         @Min(1)
-        Long duration = 500L;
+        Long duration = DEFAULT_TIMEOUT_MILLIS;
 
         @NotNull
         TimeUnit unit = TimeUnit.MILLISECONDS;

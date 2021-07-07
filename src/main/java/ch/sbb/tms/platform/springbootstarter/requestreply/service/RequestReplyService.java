@@ -21,7 +21,6 @@ import javax.validation.constraints.NotNull;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cloud.stream.binder.Binder;
@@ -136,9 +135,8 @@ public class RequestReplyService implements ApplicationContextAware {
         final AtomicReference<A> returnValue = new AtomicReference<>();
 
         @SuppressWarnings("unchecked")
-        Consumer<Message<?>> responseConsumer = msg -> {
-            returnValue.set((A) messageConverter.fromMessage(msg, expectedClass));
-        };
+        Consumer<Message<?>> responseConsumer = msg -> returnValue.set((A) messageConverter.fromMessage(msg, expectedClass));
+
         return requestReply( //
                 request, //
                 requestDestination, //
@@ -321,7 +319,7 @@ public class RequestReplyService implements ApplicationContextAware {
     }
 
     @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+    public void setApplicationContext(ApplicationContext applicationContext) {
         synchronized (REQUEST_REPLY_SERVICE_REFERENCE) {
             if (REQUEST_REPLY_SERVICE_REFERENCE.get() == null) {
                 REQUEST_REPLY_SERVICE_REFERENCE.set(applicationContext.getBean(RequestReplyService.class));

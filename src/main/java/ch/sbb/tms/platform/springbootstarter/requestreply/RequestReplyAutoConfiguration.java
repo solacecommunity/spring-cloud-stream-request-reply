@@ -4,7 +4,6 @@
 
 package ch.sbb.tms.platform.springbootstarter.requestreply;
 
-import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
@@ -95,12 +94,12 @@ public class RequestReplyAutoConfiguration implements ApplicationContextInitiali
         }
 
         @Override
-        public void postProcessBeanFactory(ConfigurableListableBeanFactory arg0) throws BeansException {
+        public void postProcessBeanFactory(ConfigurableListableBeanFactory arg0) {
             // nothing to do here
         }
 
         @Override
-        public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry arg0) throws BeansException {
+        public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry arg0) {
             // for global and binder scope configure request reply beans if preconditions are met
             applicationContext.registerBeanDefinition( //
                     "requestReplyBinderSpecificConfiguration", //
