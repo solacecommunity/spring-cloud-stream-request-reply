@@ -78,10 +78,14 @@ public class RequestReplyMessageHeaderSupportService {
 
     private <Q, A> void transferAndAdoptHeaders(Message<Q> request, MessageBuilder<A> mb) {
         String correlationId = getCorrelationId(request);
-        if (correlationId != null) mb.setCorrelationId(correlationId);
+        if (correlationId != null) {
+            mb.setCorrelationId(correlationId);
+        }
 
         String replyToDestination = getReplyTo(request);
-        if (replyToDestination != null) mb.setHeader(BinderHeaders.TARGET_DESTINATION, replyToDestination);
+        if (replyToDestination != null) {
+            mb.setHeader(BinderHeaders.TARGET_DESTINATION, replyToDestination);
+        }
     }
 
     /**

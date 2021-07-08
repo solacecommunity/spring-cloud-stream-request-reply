@@ -12,7 +12,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.validation.constraints.NotNull;
 
-import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cloud.stream.binder.AbstractMessageChannelBinder;
@@ -94,7 +93,7 @@ public class RequestReplyBinderAdapterFactoryImpl
     }
 
     @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+    public void setApplicationContext(ApplicationContext applicationContext) {
         synchronized (REQUEST_REPLY_BINDER_ADAPTER_FACTORY_REFERENCE) {
             if (REQUEST_REPLY_BINDER_ADAPTER_FACTORY_REFERENCE.get() == null) {
                 REQUEST_REPLY_BINDER_ADAPTER_FACTORY_REFERENCE.set(applicationContext.getBean(RequestReplyBinderAdapterFactoryImpl.class));
@@ -175,7 +174,7 @@ public class RequestReplyBinderAdapterFactoryImpl
         }
     }
 
-    class RequestReplyBinderAdapterImpl implements RequestReplyBinderAdapter {
+    static class RequestReplyBinderAdapterImpl implements RequestReplyBinderAdapter {
         private MessageBuilderConfigurer messageBuilderConfigurer;
         private BinderConsumerPropertiesConfigurer<?> consumerPropertiesConfigurer;
         private RequestReplyProperties properties;
