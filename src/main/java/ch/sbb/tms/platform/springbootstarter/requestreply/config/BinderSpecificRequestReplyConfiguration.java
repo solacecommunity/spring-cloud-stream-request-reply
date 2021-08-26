@@ -1,6 +1,7 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -8,6 +9,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.cloud.stream.binder.Binder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyBinderAdapter;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyBinderAdapterFactory;
@@ -18,6 +20,7 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyBi
 @Configuration
 @ConditionalOnBean(Binder.class)
 @ConditionalOnProperty(prefix = "requestReply", name = "topic", havingValue = "", matchIfMissing = false)
+@AutoConfigureAfter({ PropertySourcesPlaceholderConfigurer.class })
 @EnableConfigurationProperties(RequestReplyProperties.class)
 public class BinderSpecificRequestReplyConfiguration {
     @Bean

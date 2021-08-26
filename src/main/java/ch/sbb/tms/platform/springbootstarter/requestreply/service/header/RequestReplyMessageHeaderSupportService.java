@@ -68,7 +68,7 @@ public class RequestReplyMessageHeaderSupportService {
      * @param payloadFunction mapping function from incoming to outgoing payload
      * @return message with the payload function applied to the incoming message and the message headers prepared for answering
      */
-    public <Q, A> Function<Message<Q>, Message<A>> wrap(Function<Q, A> payloadFunction) {
+    public <Q, A, T extends Function<Q, A>> Function<Message<Q>, Message<A>> wrap(T payloadFunction) {
         return request -> {
             MessageBuilder<A> mb = MessageBuilder.withPayload(payloadFunction.apply(request.getPayload()));
             transferAndAdoptHeaders(request, mb);
