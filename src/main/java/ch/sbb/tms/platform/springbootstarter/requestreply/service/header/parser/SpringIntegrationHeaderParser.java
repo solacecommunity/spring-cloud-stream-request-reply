@@ -1,5 +1,7 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser;
 
+import java.util.Optional;
+
 import org.springframework.core.annotation.Order;
 import org.springframework.integration.IntegrationMessageHeaderAccessor;
 import org.springframework.messaging.MessageHeaders;
@@ -13,7 +15,6 @@ public class SpringIntegrationHeaderParser implements MessageHeaderCorrelationId
 
     @Override
     public String getCorrelationId(MessageHeaders headers) {
-        return headers.get(IntegrationMessageHeaderAccessor.CORRELATION_ID, String.class);
+        return Optional.ofNullable(headers.get(IntegrationMessageHeaderAccessor.CORRELATION_ID)).map(Object::toString).orElse(null);
     }
-
 }

@@ -21,6 +21,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.messaging.MessageChannel;
@@ -34,7 +35,7 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.service.properties.Sol
 @Configuration
 @ConditionalOnClass({ MessageChannel.class })
 @Import({ BindingBeansRegistrar.class, BinderFactoryAutoConfiguration.class })
-@AutoConfigureAfter({ ContextFunctionCatalogAutoConfiguration.class })
+@AutoConfigureAfter({ ContextFunctionCatalogAutoConfiguration.class, PropertySourcesPlaceholderConfigurer.class })
 @AutoConfigureBefore({ FunctionConfiguration.class })
 @Order(Ordered.LOWEST_PRECEDENCE)
 public class RequestReplyAutoConfiguration implements ApplicationContextInitializer<GenericApplicationContext> {
