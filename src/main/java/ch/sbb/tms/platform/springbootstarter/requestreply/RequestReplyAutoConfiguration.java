@@ -18,6 +18,7 @@ import org.springframework.cloud.stream.config.BindingBeansRegistrar;
 import org.springframework.cloud.stream.function.FunctionConfiguration;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.support.GenericApplicationContext;
@@ -38,6 +39,7 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.service.properties.Sol
 @AutoConfigureAfter({ ContextFunctionCatalogAutoConfiguration.class, PropertySourcesPlaceholderConfigurer.class })
 @AutoConfigureBefore({ FunctionConfiguration.class })
 @Order(Ordered.LOWEST_PRECEDENCE)
+@ComponentScan("ch.sbb.tms.platform.springbootstarter.requestreply.service")
 public class RequestReplyAutoConfiguration implements ApplicationContextInitializer<GenericApplicationContext> {
     private static final int SOLACE_CONFIGURERS_PRIORITY = 200;
 
