@@ -27,8 +27,9 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import ch.sbb.tms.platform.springbootstarter.requestreply.configuration.RequestReplyTestConfiguration;
-import ch.sbb.tms.platform.springbootstarter.requestreply.integration.RequestReplyTestEndpoint;
+import ch.sbb.tms.platform.sampleapp.springbootstarter.requestreply.RequestReplyTestApplication;
+import ch.sbb.tms.platform.sampleapp.springbootstarter.requestreply.configuration.RequestReplyTestConfiguration;
+import ch.sbb.tms.platform.sampleapp.springbootstarter.requestreply.integration.RequestReplyTestEndpoint;
 
 @ActiveProfiles({ PROFILE_TEST, PROFILE_LOCAL_APP })
 @SpringBootTest()

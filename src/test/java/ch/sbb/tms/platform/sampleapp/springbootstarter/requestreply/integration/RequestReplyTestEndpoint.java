@@ -2,7 +2,7 @@
  * Copyright © Schweizerische Bundesbahnen SBB, 2021.
  */
 
-package ch.sbb.tms.platform.springbootstarter.requestreply.integration;
+package ch.sbb.tms.platform.sampleapp.springbootstarter.requestreply.integration;
 
 
 import static org.springframework.test.util.ReflectionTestUtils.invokeMethod;

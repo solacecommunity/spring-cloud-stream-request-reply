@@ -2,7 +2,7 @@
  * Copyright © Schweizerische Bundesbahnen SBB, 2021.
  */
 
-package ch.sbb.tms.platform.springbootstarter.requestreply.configuration;
+package ch.sbb.tms.platform.sampleapp.springbootstarter.requestreply.configuration;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -24,7 +24,7 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT
 @Configuration
 @Import(TestChannelBinderConfiguration.class)
 @EnableIntegration
-@IntegrationComponentScan("ch.sbb.tms.platform.springbootstarter.requestreply.integration")
+@IntegrationComponentScan("ch.sbb.tms.platform.sampleapp.springbootstarter.requestreply.integration")
 public class RequestReplyTestConfiguration implements ApplicationContextInitializer<GenericApplicationContext> {
 
     @Override

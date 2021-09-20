@@ -4,8 +4,8 @@
 
 package ch.sbb.tms.platform.springbootstarter.requestreply;
 
-import static ch.sbb.tms.platform.springbootstarter.requestreply.integration.RequestReplyTestEndpoint.MC_REVERSE_IN;
-import static ch.sbb.tms.platform.springbootstarter.requestreply.integration.RequestReplyTestEndpoint.MC_SUCCESS_CHANNEL;
+import static ch.sbb.tms.platform.sampleapp.springbootstarter.requestreply.integration.RequestReplyTestEndpoint.MC_REVERSE_IN;
+import static ch.sbb.tms.platform.sampleapp.springbootstarter.requestreply.integration.RequestReplyTestEndpoint.MC_SUCCESS_CHANNEL;
 import static ch.sbb.tms.platform.springbootstarter.requestreply.util.CheckedExceptionWrapper.throwingUnchecked;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;

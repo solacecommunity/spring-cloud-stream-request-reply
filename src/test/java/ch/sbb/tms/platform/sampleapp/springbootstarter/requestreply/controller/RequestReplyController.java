@@ -2,7 +2,7 @@
  * Copyright © Schweizerische Bundesbahnen SBB, 2021.
  */
 
-package ch.sbb.tms.platform.springbootstarter.requestreply.controller;
+package ch.sbb.tms.platform.sampleapp.springbootstarter.requestreply.controller;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
