@@ -1,4 +1,4 @@
-package ch.sbb.tms.platform.springbootstarter.requestreply.configuration;
+package ch.sbb.tms.platform.sampleapp.springbootstarter.requestreply.configuration;
 
 import java.util.concurrent.TimeUnit;
 

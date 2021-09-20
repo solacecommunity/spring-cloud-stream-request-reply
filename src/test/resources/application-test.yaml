@@ -1,4 +1,4 @@
-context.initializer.classes: ch.sbb.tms.platform.springbootstarter.requestreply.configuration.RequestReplyTestConfiguration
+context.initializer.classes: ch.sbb.tms.platform.sampleapp.springbootstarter.requestreply.configuration.RequestReplyTestConfiguration
 
 spring:
   cloud:

@@ -2,7 +2,7 @@
  * Copyright © Schweizerische Bundesbahnen SBB, 2021.
  */
 
-package ch.sbb.tms.platform.springbootstarter.requestreply;
+package ch.sbb.tms.platform.sampleapp.springbootstarter.requestreply;
 
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.test.context.ActiveProfiles;
 
+import ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.RequestReplyMessageHeaderSupportService;
 
 @ActiveProfiles(AbstractRequestReplyIT.PROFILE_LOCAL_APP)
