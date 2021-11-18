@@ -133,12 +133,13 @@ public class RequestReplyService implements ApplicationContextAware {
             throw new IllegalArgumentException("Missing configuration option: spring.cloud.stream.bindings.requestReplyReplies-in-0.destination");
         }
 
+        // Accepted that a client not using this lib but solace,
+        // may be confused about not finding it in the correct solace header locations.
+        // But so this lib will work if TibRv and Solace binder are in pom.xml of project.
         MessageBuilder<@NotNull Q> messageBuilder = MessageBuilder.withPayload(request);
         messageBuilder
                 .setCorrelationId(correlationId)
                 .setHeader(MessageHeaders.REPLY_CHANNEL, replyTopic);
-        //         messageBuilder.setHeader(SolaceHeaders.REPLY_TO, JCSMPFactory.onlyInstance().createTopic(topic));
-
 
         return postRequest(requestDestination, correlationId, messageBuilder.build(), responseConsumer, timeoutPeriod);
     }

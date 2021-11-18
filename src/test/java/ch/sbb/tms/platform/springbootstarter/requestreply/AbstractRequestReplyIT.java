@@ -65,7 +65,7 @@ public abstract class AbstractRequestReplyIT {
     protected RequestReplyTestEndpoint testEndpoint;
 
     @BeforeEach
-    private void resetMocks() {
+    protected void resetMocks() {
         if (!mocks.isEmpty()) {
             Mockito.reset(mocks.toArray());
         }
