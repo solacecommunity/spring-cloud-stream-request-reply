@@ -59,17 +59,17 @@ class HeaderParserIT extends AbstractRequestReplyIT {
     void headerParserPrecedenceIsObeyed() {
         MessageBuilder<String> mb = MessageBuilder.withPayload("headerParserPrecedenceIsObeyed");
 
-        String correlationId1 = UUID.randomUUID().toString();
+        String correlationId1 = "93205362-d3ea-4fb7-9fa9-correlationId1";
         mb.setHeader(HTTP_HEADER_CORRELATION_ID, correlationId1);
         Message<String> message = mb.build();
         assertEquals(correlationId1, headerSupport.getCorrelationId(message));
 
-        String correlationId2 = UUID.randomUUID().toString();
+        String correlationId2 = "93205362-d3ea-4fb7-9fa9-correlationId2";
         mb.setCorrelationId(correlationId2);
         message = mb.build();
         assertEquals(correlationId2, headerSupport.getCorrelationId(message));
 
-        String correlationId3 = UUID.randomUUID().toString();
+        String correlationId3 = "93205362-d3ea-4fb7-9fa9-correlationId3";
         mb.setHeader(SolaceHeaders.CORRELATION_ID, correlationId3);
         message = mb.build();
         assertEquals(correlationId3, headerSupport.getCorrelationId(message));

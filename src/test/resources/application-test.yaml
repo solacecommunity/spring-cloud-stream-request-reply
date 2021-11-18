@@ -2,18 +2,11 @@ context.initializer.classes: ch.sbb.tms.platform.sampleapp.springbootstarter.req
 
 spring:
   cloud:
+    function:
+      definition: requestReplyReplies
     stream:
-      binders:
-        main_session:
-          environment:
-            requestReply:
-              topic: requestReply-replies-in-0
-              group: ${spring.cloud.stream.default.group}
-              timeout:
-                duration: 5
-                unit: MINUTES
-              consumerProperties:
-                concurrency: 1
-                extension:
-                  provisionDurableQueue: true
-                  queueRespectsMsgTtl: true
+      bindings:
+        requestReplyReplies-in-0:
+          destination: requestReply/response/itTests
+          contentType: "application/json"
+          binder: solace

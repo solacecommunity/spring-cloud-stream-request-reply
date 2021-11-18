@@ -1,7 +1,3 @@
 # AutoConfiguration
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
   ch.sbb.tms.platform.springbootstarter.requestreply.RequestReplyAutoConfiguration
-
-# Initializers
-org.springframework.context.ApplicationContextInitializer=\
-  ch.sbb.tms.platform.springbootstarter.requestreply.RequestReplyAutoConfiguration
