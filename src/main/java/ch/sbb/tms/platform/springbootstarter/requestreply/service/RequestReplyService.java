@@ -42,8 +42,7 @@ import static ch.sbb.tms.platform.springbootstarter.requestreply.util.CheckedExc
  * The RequestReplyService takes care of asynchronous request and reply messages, relating one to the other and allowing to wrap both as a synchronous call.
  */
 @Service
-public class RequestReplyService implements ApplicationContextAware {
-    static final AtomicReference<RequestReplyService> REQUEST_REPLY_SERVICE_REFERENCE = new AtomicReference<>(null);
+public class RequestReplyService {
     static final String MISSING_DESTINATION = "not-set";
     private static final Logger LOG = LoggerFactory.getLogger(RequestReplyService.class);
     private static final ExecutorService REQUEST_REPLY_EXECUTOR = Executors.newCachedThreadPool();
@@ -213,15 +212,6 @@ public class RequestReplyService implements ApplicationContextAware {
         }
         else {
             handler.receive(message);
-        }
-    }
-
-    @Override
-    public void setApplicationContext(ApplicationContext applicationContext) {
-        synchronized (REQUEST_REPLY_SERVICE_REFERENCE) {
-            if (REQUEST_REPLY_SERVICE_REFERENCE.get() == null) {
-                REQUEST_REPLY_SERVICE_REFERENCE.set(applicationContext.getBean(RequestReplyService.class));
-            }
         }
     }
 }
