@@ -26,8 +26,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cloud.stream.config.BindingServiceProperties;
 import org.springframework.cloud.stream.function.StreamBridge;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
@@ -82,24 +80,51 @@ public class RequestReplyService {
             Class<A> expectedClass,
             @NotNull @Valid Duration timeoutPeriod
     ) throws ExecutionException, InterruptedException, TimeoutException {
-        final AtomicReference<A> returnValue = new AtomicReference<>();
-
-        @SuppressWarnings("unchecked")
-        Consumer<Message<?>> responseConsumer = msg -> returnValue.set((A) messageConverter.fromMessage(msg, expectedClass));
-
         try {
             return requestReply(
                     request,
                     requestDestination,
-                    responseConsumer,
+                    expectedClass,
                     timeoutPeriod
-            ).thenApply(none -> returnValue.get()).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS);
+            ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS);
         }
         catch (TimeoutException te) {
             throw new TimeoutException(String.format("Failed to collect response: %s: %s",
                     te.getClass(),
                     te.getMessage()));
         }
+    }
+
+    /**
+     * sends the given request to the given message channel, awaits the response and maps it to the provided class as a return value
+     * this is non-blocking.
+     * Attention: use this only for the special edge case that you need parallel requests in the same thread.
+     *
+     * @param <Q> question/request type
+     * @param <A> answer/response type
+     * @param request the request to be sent
+     * @param requestDestination the message channel name to send the request to
+     * @param expectedClass the class the response shall be mapped to
+     * @param timeoutPeriod the timeout when to give up waiting for a response
+     * @return a {@link CompletableFuture} which can be used to await and retrieve the response
+     */
+    public <Q, A> CompletableFuture<A> requestReply(
+            Q request,
+            @NotEmpty String requestDestination,
+            Class<A> expectedClass,
+            @NotNull @Valid Duration timeoutPeriod
+    ) throws TimeoutException {
+        final AtomicReference<A> returnValue = new AtomicReference<>();
+
+        @SuppressWarnings("unchecked")
+        Consumer<Message<?>> responseConsumer = msg -> returnValue.set((A) messageConverter.fromMessage(msg, expectedClass));
+
+        return requestReply(
+                request,
+                requestDestination,
+                responseConsumer,
+                timeoutPeriod
+        ).thenApply(none -> returnValue.get());
     }
 
     /**
@@ -138,7 +163,8 @@ public class RequestReplyService {
         MessageBuilder<?> messageBuilder;
         if (request instanceof Message) {
             messageBuilder = MessageBuilder.fromMessage((Message<?>) request);
-        } else {
+        }
+        else {
             messageBuilder = MessageBuilder.withPayload(request);
         }
 
