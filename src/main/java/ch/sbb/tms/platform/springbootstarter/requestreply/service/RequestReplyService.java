@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.stream.config.BindingServiceProperties;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.context.ApplicationContext;
@@ -96,7 +95,8 @@ public class RequestReplyService implements ApplicationContextAware {
                     responseConsumer,
                     timeoutPeriod
             ).thenApply(none -> returnValue.get()).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS);
-        } catch (TimeoutException te) {
+        }
+        catch (TimeoutException te) {
             throw new TimeoutException(String.format("Failed to collect response: %s: %s",
                     te.getClass(),
                     te.getMessage()));
@@ -136,7 +136,13 @@ public class RequestReplyService implements ApplicationContextAware {
         // Accepted that a client not using this lib but solace,
         // may be confused about not finding it in the correct solace header locations.
         // But so this lib will work if TibRv and Solace binder are in pom.xml of project.
-        MessageBuilder<@NotNull Q> messageBuilder = MessageBuilder.withPayload(request);
+        MessageBuilder<?> messageBuilder;
+        if (request instanceof Message) {
+            messageBuilder = MessageBuilder.fromMessage((Message<?>) request);
+        } else {
+            messageBuilder = MessageBuilder.withPayload(request);
+        }
+
         messageBuilder
                 .setCorrelationId(correlationId)
                 .setHeader(MessageHeaders.REPLY_CHANNEL, replyTopic);

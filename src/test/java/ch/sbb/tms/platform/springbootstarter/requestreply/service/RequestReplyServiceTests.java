@@ -74,6 +74,48 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
+    void requestAndAwaitReplyWithMsg_expectMsgSendAndException_whenNoResponse() {
+        SensorReading requestContent = new SensorReading();
+        requestContent.setSensorID("toilet");
+
+        assertThrows(Exception.class, () -> {
+            requestReplyService.requestAndAwaitReply(
+                    MessageBuilder.withPayload(requestContent)
+                            .setHeader("solace_correlationId", "theMessageId")
+                            .build(),
+                    "last_value/temperature/celsius/demo",
+                    SensorReading.class,
+                    Duration.ofMillis(100)
+            );
+        });
+
+        Mockito.verify(streamBridge).send(
+                destinationCaptor.capture(),
+                messageCaptor.capture()
+        );
+
+        assertEquals(
+                "last_value/temperature/celsius/demo",
+                destinationCaptor.getValue()
+        );
+
+        assertEquals(
+                "requestReply/response/itTests",
+                messageCaptor.getValue().getHeaders().getReplyChannel()
+        );
+
+        assertEquals(
+                "theMessageId",
+                messageCaptor.getValue().getHeaders().get("correlationId")
+        );
+
+        assertEquals(
+                requestContent,
+                messageCaptor.getValue().getPayload()
+        );
+    }
+
+    @Test
     void requestAndAwaitReply_expectMsgSendAdnReturnResponse_whenResponseSend() throws ExecutionException, InterruptedException, TimeoutException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
@@ -113,5 +155,26 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
         );
 
         resetMocks();
+    }
+
+    @Test
+    void onReplyReceived_whenNoCorrelationId_thenLogErrorAndNotBlowUp() {
+        requestReplyService.onReplyReceived(
+                        MessageBuilder.withPayload(
+                                "foo"
+                        )
+                        .build()
+        );
+    }
+
+    @Test
+    void onReplyReceived_whenNoPendingResponses_thenLogErrorAndNotBlowUp() {
+        requestReplyService.onReplyReceived(
+                MessageBuilder.withPayload(
+                                "foo"
+                        )
+                        .setHeader("correlationId", "demooo")
+                        .build()
+        );
     }
 }
