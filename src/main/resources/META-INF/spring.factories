@@ -1,3 +1,11 @@
 # AutoConfiguration
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
   ch.sbb.tms.platform.springbootstarter.requestreply.RequestReplyAutoConfiguration
+
+# Initializers
+org.springframework.context.ApplicationContextInitializer=\
+  ch.sbb.tms.platform.springbootstarter.requestreply.RequestReplyAutoConfiguration
+
+# EnvironmentPostProcessor
+org.springframework.boot.env.EnvironmentPostProcessor=\
+  ch.sbb.tms.platform.springbootstarter.requestreply.env.ReplyTopicWithWildcardPropertySourceEnvironmentPostProcessor

@@ -18,15 +18,16 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
+import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.RequestReplyMessageHeaderSupportService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.config.BindingServiceProperties;
 import org.springframework.cloud.stream.function.StreamBridge;
-import org.springframework.context.annotation.Bean;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
@@ -45,6 +46,7 @@ public class RequestReplyService {
     private static final Logger LOG = LoggerFactory.getLogger(RequestReplyService.class);
     private static final ExecutorService REQUEST_REPLY_EXECUTOR = Executors.newCachedThreadPool();
     private static final Map<String, ResponseHandler> PENDING_RESPONSES = new ConcurrentHashMap<>();
+
     @Autowired
     private StreamBridge streamBridge;
 
@@ -58,10 +60,8 @@ public class RequestReplyService {
     @Autowired
     private BindingServiceProperties bindingServiceProperties;
 
-    @Bean
-    public Consumer<Message<?>> requestReplyReplies() {
-        return this::onReplyReceived;
-    }
+    @Autowired
+    private RequestReplyProperties requestReplyProperties;
 
     /**
      * sends the given request to the given message channel, awaits the response and maps it to the provided class as a return value
@@ -116,6 +116,8 @@ public class RequestReplyService {
     ) throws TimeoutException {
         final AtomicReference<A> returnValue = new AtomicReference<>();
 
+        requestDestination = requestReplyProperties.replaceVariablesWithWildcard(requestDestination);
+
         @SuppressWarnings("unchecked")
         Consumer<Message<?>> responseConsumer = msg -> returnValue.set((A) messageConverter.fromMessage(msg, expectedClass));
 
@@ -151,7 +153,17 @@ public class RequestReplyService {
             LOG.debug("generated correlation Id {} for request directed to {} with content {}", correlationId, requestDestination, request);
         }
 
-        String replyTopic = bindingServiceProperties.getBindingDestination("requestReplyReplies-in-0");
+        String bindingName = requestReplyProperties
+                .findMatchingBinder(requestDestination)
+                .orElseThrow(() -> new IllegalArgumentException("Unable to find binding for destination: " + requestDestination + " Please check spring.cloud.stream.requestreply.bindingMapping in your configuration."));
+        String replyTopic = requestReplyProperties.getBindingMapping(bindingName)
+                .orElseThrow(() -> new IllegalArgumentException("Unable to send request reply: Missing binding mapping for: " + bindingName + ". "
+                        + "Please check that there is a matching: spring.cloud.stream.requestreply.bindingMapping[].binding"))
+                .getReplyTopic();
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Using binding:" + bindingName + " and replyTopic:" + replyTopic);
+        }
 
         if (!StringUtils.hasText(replyTopic) || Objects.equals(replyTopic, MISSING_DESTINATION)) {
             throw new IllegalArgumentException("Missing configuration option: spring.cloud.stream.bindings.requestReplyReplies-in-0.destination");
@@ -170,13 +182,14 @@ public class RequestReplyService {
 
         messageBuilder
                 .setCorrelationId(correlationId)
+                .setHeader(BinderHeaders.TARGET_DESTINATION, requestDestination)
                 .setHeader(MessageHeaders.REPLY_CHANNEL, replyTopic);
 
-        return postRequest(requestDestination, correlationId, messageBuilder.build(), responseConsumer, timeoutPeriod);
+        return postRequest(bindingName + "-out-0", correlationId, messageBuilder.build(), responseConsumer, timeoutPeriod);
     }
 
     private CompletableFuture<Void> postRequest(
-            String requestDestination,
+            String bindingName,
             String correlationId,
             Message<?> message,
             @NotNull Consumer<Message<?>> responseConsumer,
@@ -184,7 +197,7 @@ public class RequestReplyService {
     ) {
         Runnable requestRunnable = () -> {
             LOG.trace("Sending message {}", message);
-            streamBridge.send(requestDestination, message);
+            streamBridge.send(bindingName, message);
         };
 
         return postRequest(correlationId, requestRunnable, responseConsumer, timeoutPeriod);
@@ -239,5 +252,9 @@ public class RequestReplyService {
         else {
             handler.receive(message);
         }
+    }
+
+    public Consumer<Message<?>> requestReplyReplies() {
+        return this::onReplyReceived;
     }
 }

@@ -3,10 +3,15 @@ context.initializer.classes: ch.sbb.tms.platform.sampleapp.springbootstarter.req
 spring:
   cloud:
     function:
-      definition: requestReplyReplies
+      definition: requestReplyRepliesDemo
     stream:
+      requestreply:
+        bindingMapping:
+          - binding: requestReplyRepliesDemo
+            topicPatterns:
+              - last_value/temperature/celsius/.*
       bindings:
-        requestReplyReplies-in-0:
+        requestReplyRepliesDemo-in-0:
           destination: requestReply/response/itTests
           contentType: "application/json"
           binder: solace

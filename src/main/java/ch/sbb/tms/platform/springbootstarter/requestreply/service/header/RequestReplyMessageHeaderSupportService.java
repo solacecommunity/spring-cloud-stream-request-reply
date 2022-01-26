@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
+import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.correlationid.MessageCorrelationIdParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
@@ -25,6 +26,9 @@ public class RequestReplyMessageHeaderSupportService {
 
     @Autowired
     private List<MessageReplyToParser> replyToParsers;
+
+    @Autowired
+    private RequestReplyProperties requestReplyProperties;
 
     public @Nullable
     String getCorrelationId(Message<?> message) {
@@ -84,7 +88,7 @@ public class RequestReplyMessageHeaderSupportService {
 
         String replyToDestination = getReplyTo(request);
         if (replyToDestination != null) {
-            mb.setHeader(BinderHeaders.TARGET_DESTINATION, replyToDestination);
+            mb.setHeader(BinderHeaders.TARGET_DESTINATION, requestReplyProperties.replaceVariables(replyToDestination));
         }
     }
 }
