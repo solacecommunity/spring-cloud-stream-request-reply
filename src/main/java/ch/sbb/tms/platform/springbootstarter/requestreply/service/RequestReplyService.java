@@ -69,26 +69,58 @@ public class RequestReplyService {
      * @param <Q> question/request type
      * @param <A> answer/response type
      * @param request the request to be sent
-     * @param requestDestination the message channel name to send the request to
-     * @param expectedClass the class the response shall be mapped to
+     * @param requestDestination the topic name to send the request to. Example: my.supper.topic
+     * @param expectedClass the class the response shall be mapped to.
      * @param timeoutPeriod the timeout when to give up waiting for a response
      * @return a {@link CompletableFuture} which can be used to await and retrieve the response
      */
-    public <Q, A> A requestAndAwaitReply(
+    public <Q, A> A requestAndAwaitReplyToTopic(
             Q request,
             @NotEmpty String requestDestination,
             Class<A> expectedClass,
             @NotNull @Valid Duration timeoutPeriod
-    ) throws ExecutionException, InterruptedException, TimeoutException {
+    ) throws InterruptedException, TimeoutException {
         try {
-            return requestReply(
+            return requestReplyToTopic(
                     request,
                     requestDestination,
                     expectedClass,
                     timeoutPeriod
             ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS);
         }
-        catch (TimeoutException te) {
+        catch (TimeoutException | ExecutionException te) {
+            throw new TimeoutException(String.format("Failed to collect response: %s: %s",
+                    te.getClass(),
+                    te.getMessage()));
+        }
+    }
+
+    /**
+     * sends the given request to the given message channel, awaits the response and maps it to the provided class as a return value
+     *
+     * @param <Q> question/request type
+     * @param <A> answer/response type
+     * @param request the request to be sent
+     * @param bindingName the message channel name to send the request to. Example: requestReplyRepliesDemoTibrv
+     * @param expectedClass the class the response shall be mapped to
+     * @param timeoutPeriod the timeout when to give up waiting for a response
+     * @return a {@link CompletableFuture} which can be used to await and retrieve the response
+     */
+    public <Q, A> A requestAndAwaitReplyToBinding(
+            Q request,
+            @NotEmpty String bindingName,
+            Class<A> expectedClass,
+            @NotNull @Valid Duration timeoutPeriod
+    ) throws InterruptedException, TimeoutException {
+        try {
+            return requestReplyToBinding(
+                    request,
+                    bindingName,
+                    expectedClass,
+                    timeoutPeriod
+            ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS);
+        }
+        catch (TimeoutException | ExecutionException te) {
             throw new TimeoutException(String.format("Failed to collect response: %s: %s",
                     te.getClass(),
                     te.getMessage()));
@@ -103,12 +135,45 @@ public class RequestReplyService {
      * @param <Q> question/request type
      * @param <A> answer/response type
      * @param request the request to be sent
-     * @param requestDestination the message channel name to send the request to
+     * @param bindingName the message channel name to send the request to. Example: requestReplyRepliesDemoTibrv
      * @param expectedClass the class the response shall be mapped to
      * @param timeoutPeriod the timeout when to give up waiting for a response
      * @return a {@link CompletableFuture} which can be used to await and retrieve the response
      */
-    public <Q, A> CompletableFuture<A> requestReply(
+    public <Q, A> CompletableFuture<A> requestReplyToBinding(
+            Q request,
+            @NotEmpty String bindingName,
+            Class<A> expectedClass,
+            @NotNull @Valid Duration timeoutPeriod
+    ) throws TimeoutException {
+        final AtomicReference<A> returnValue = new AtomicReference<>();
+
+        @SuppressWarnings("unchecked")
+        Consumer<Message<?>> responseConsumer = msg -> returnValue.set((A) messageConverter.fromMessage(msg, expectedClass));
+
+        return requestReply(
+                request,
+                bindingName,
+                bindingServiceProperties.getBindingDestination(bindingName + "-out-0"),
+                responseConsumer,
+                timeoutPeriod
+        ).thenApply(none -> returnValue.get());
+    }
+
+    /**
+     * sends the given request to the given message channel, awaits the response and maps it to the provided class as a return value
+     * this is non-blocking.
+     * Attention: use this only for the special edge case that you need parallel requests in the same thread.
+     *
+     * @param <Q> question/request type
+     * @param <A> answer/response type
+     * @param request the request to be sent
+     * @param requestDestination the topic name to send the request to. Example: my.supper.topic
+     * @param expectedClass the class the response shall be mapped to
+     * @param timeoutPeriod the timeout when to give up waiting for a response
+     * @return a {@link CompletableFuture} which can be used to await and retrieve the response
+     */
+    public <Q, A> CompletableFuture<A> requestReplyToTopic(
             Q request,
             @NotEmpty String requestDestination,
             Class<A> expectedClass,
@@ -116,13 +181,16 @@ public class RequestReplyService {
     ) throws TimeoutException {
         final AtomicReference<A> returnValue = new AtomicReference<>();
 
-        requestDestination = requestReplyProperties.replaceVariablesWithWildcard(requestDestination);
-
         @SuppressWarnings("unchecked")
         Consumer<Message<?>> responseConsumer = msg -> returnValue.set((A) messageConverter.fromMessage(msg, expectedClass));
 
+        String bindingName = requestReplyProperties
+                .findMatchingBinder(requestDestination)
+                .orElseThrow(() -> new IllegalArgumentException("Unable to find binding for destination: " + requestDestination + " Please check spring.cloud.stream.requestreply.bindingMapping in your configuration."));
+
         return requestReply(
                 request,
+                bindingName,
                 requestDestination,
                 responseConsumer,
                 timeoutPeriod
@@ -134,12 +202,14 @@ public class RequestReplyService {
      *
      * @param <Q> question/request type
      * @param request the request to be sent
+     * @param bindingName the message channel name to send the request to. Example: requestReplyRepliesDemoTibrv
      * @param requestDestination the message channel name to send the request to
      * @param responseConsumer the consumer to handle incoming replies
      * @return a {@link CompletableFuture} spanning the request and response await time
      */
     private <Q> CompletableFuture<Void> requestReply(
             @NotNull Q request,
+            @NotEmpty String bindingName,
             @NotEmpty String requestDestination,
             @NotNull Consumer<Message<?>> responseConsumer,
             @NotNull @Valid Duration timeoutPeriod
@@ -153,20 +223,21 @@ public class RequestReplyService {
             LOG.debug("generated correlation Id {} for request directed to {} with content {}", correlationId, requestDestination, request);
         }
 
-        String bindingName = requestReplyProperties
-                .findMatchingBinder(requestDestination)
-                .orElseThrow(() -> new IllegalArgumentException("Unable to find binding for destination: " + requestDestination + " Please check spring.cloud.stream.requestreply.bindingMapping in your configuration."));
+        final String requestDestinationRaw = requestReplyProperties.replaceVariablesWithWildcard(requestDestination);
+
         String replyTopic = requestReplyProperties.getBindingMapping(bindingName)
                 .orElseThrow(() -> new IllegalArgumentException("Unable to send request reply: Missing binding mapping for: " + bindingName + ". "
                         + "Please check that there is a matching: spring.cloud.stream.requestreply.bindingMapping[].binding"))
                 .getReplyTopic();
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Using binding:" + bindingName + " and replyTopic:" + replyTopic);
+            LOG.debug("Using binding:" + bindingName +
+                    " , destination:" + requestDestinationRaw +
+                    " and replyTopic:" + replyTopic);
         }
 
         if (!StringUtils.hasText(replyTopic) || Objects.equals(replyTopic, MISSING_DESTINATION)) {
-            throw new IllegalArgumentException("Missing configuration option: spring.cloud.stream.bindings.requestReplyReplies-in-0.destination");
+            throw new IllegalArgumentException("Missing configuration option: spring.cloud.stream.requestreply[].replyTopic where binding: " + bindingName + "");
         }
 
         // Accepted that a client not using this lib but solace,
@@ -182,7 +253,7 @@ public class RequestReplyService {
 
         messageBuilder
                 .setCorrelationId(correlationId)
-                .setHeader(BinderHeaders.TARGET_DESTINATION, requestDestination)
+                .setHeader(BinderHeaders.TARGET_DESTINATION, requestDestinationRaw)
                 .setHeader(MessageHeaders.REPLY_CHANNEL, replyTopic);
 
         return postRequest(bindingName + "-out-0", correlationId, messageBuilder.build(), responseConsumer, timeoutPeriod);

@@ -7,17 +7,22 @@ import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.binder.BinderHeaders;
+import org.springframework.cloud.stream.config.BindingServiceProperties;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyIT {
 
     @Autowired
     RequestReplyMessageHeaderSupportService supportService;
+
+    @Autowired
+    BindingServiceProperties bindingServiceProperties;
 
     @Test
     void getCorrelationId() {
@@ -61,7 +66,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
 
         Message<String> m = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
-                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my")
+                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
                 .setHeader("custom", "my-custom-my")
                 .build();
 
@@ -72,11 +77,34 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 answerM.getHeaders().get("correlationId")
         );
         assertEquals(
-                "my-dest-my",
+                "my-dest-my/p-arcs/the-event-after",
                 answerM.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
         );
         assertNull(
                 answerM.getHeaders().get("custom")
         );
     }
+
+    @Test
+    void replyTopicWithWildcards() {
+        assertEquals(
+                "requestReply/response/*/itTests",
+                bindingServiceProperties.getBindingDestination("requestReplyRepliesDemo-in-0")
+        );
+
+
+        String uuidDemoA = bindingServiceProperties.getBindingDestination("uuidDemoA-in-0");
+        String uuidDemoB = bindingServiceProperties.getBindingDestination("uuidDemoB-in-0");
+
+        assertEquals(
+                uuidDemoA,
+                uuidDemoB
+        );
+
+        assertTrue(
+                uuidDemoA.matches("uuidDemo/[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}"),
+                () -> "Random UUID4 should be provided"
+        );
+    }
+
 }

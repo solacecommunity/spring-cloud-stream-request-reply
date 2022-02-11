@@ -1,7 +1,6 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.service;
 
 import java.time.Duration;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT;
@@ -13,6 +12,7 @@ import org.mockito.Mockito;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
@@ -35,18 +35,16 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     private RequestReplyService requestReplyService;
 
     @Test
-    void requestAndAwaitReply_expectMsgSendAndException_whenNoResponse() {
+    void requestAndAwaitReplyToTopic_expectMsgSendAndException_whenNoResponse() {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
-        assertThrows(Exception.class, () -> {
-            requestReplyService.requestAndAwaitReply(
-                    request,
-                    "last_value/temperature/celsius/demo",
-                    SensorReading.class,
-                    Duration.ofMillis(100)
-            );
-        });
+        assertThrows(TimeoutException.class, () -> requestReplyService.requestAndAwaitReplyToTopic(
+                request,
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        ));
 
         Mockito.verify(streamBridge).send(
                 destinationCaptor.capture(),
@@ -54,13 +52,18 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
         );
 
         assertEquals(
-                "last_value/temperature/celsius/demo",
+                "requestReplyRepliesDemo-out-0",
                 destinationCaptor.getValue()
         );
 
         assertEquals(
-                "requestReply/response/itTests",
+                "requestReply/response/{StagePlaceholder}/itTests",
                 messageCaptor.getValue().getHeaders().getReplyChannel()
+        );
+
+        assertEquals(
+                "last_value/temperature/celsius/demo",
+                messageCaptor.getValue().getHeaders().get(BinderHeaders.TARGET_DESTINATION)
         );
 
         assertNotNull(
@@ -74,20 +77,18 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyWithMsg_expectMsgSendAndException_whenNoResponse() {
+    void requestAndAwaitReplyToTopicWithMsg_expectMsgSendAndException_whenNoResponse() {
         SensorReading requestContent = new SensorReading();
         requestContent.setSensorID("toilet");
 
-        assertThrows(Exception.class, () -> {
-            requestReplyService.requestAndAwaitReply(
-                    MessageBuilder.withPayload(requestContent)
-                            .setHeader("solace_correlationId", "theMessageId")
-                            .build(),
-                    "last_value/temperature/celsius/demo",
-                    SensorReading.class,
-                    Duration.ofMillis(100)
-            );
-        });
+        assertThrows(TimeoutException.class, () -> requestReplyService.requestAndAwaitReplyToTopic(
+                MessageBuilder.withPayload(requestContent)
+                        .setHeader("solace_correlationId", "theMessageId1")
+                        .build(),
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        ));
 
         Mockito.verify(streamBridge).send(
                 destinationCaptor.capture(),
@@ -95,17 +96,22 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
         );
 
         assertEquals(
-                "last_value/temperature/celsius/demo",
-                destinationCaptor.getValue()
-        );
-
-        assertEquals(
-                "requestReply/response/itTests",
+                "requestReply/response/{StagePlaceholder}/itTests",
                 messageCaptor.getValue().getHeaders().getReplyChannel()
         );
 
         assertEquals(
-                "theMessageId",
+                "last_value/temperature/celsius/demo",
+                messageCaptor.getValue().getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+        );
+
+        assertEquals(
+                "requestReply/response/{StagePlaceholder}/itTests",
+                messageCaptor.getValue().getHeaders().getReplyChannel()
+        );
+
+        assertEquals(
+                "theMessageId1",
                 messageCaptor.getValue().getHeaders().get("correlationId")
         );
 
@@ -116,7 +122,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReply_expectMsgSendAdnReturnResponse_whenResponseSend() throws ExecutionException, InterruptedException, TimeoutException {
+    void requestAndAwaitReplyToTopic_expectMsgSendAdnReturnResponse_whenResponseSend() throws InterruptedException, TimeoutException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -142,7 +148,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
         });
 
 
-        SensorReading response = requestReplyService.requestAndAwaitReply(
+        SensorReading response = requestReplyService.requestAndAwaitReplyToTopic(
                 request,
                 "last_value/temperature/celsius/demo",
                 SensorReading.class,
@@ -157,10 +163,141 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
         resetMocks();
     }
 
+
+    @Test
+    void requestAndAwaitReplyToBinding_expectMsgSendAndException_whenNoResponse() {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        assertThrows(TimeoutException.class, () -> requestReplyService.requestAndAwaitReplyToBinding(
+                request,
+                "requestReplyRepliesDemo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        ));
+
+        Mockito.verify(streamBridge).send(
+                destinationCaptor.capture(),
+                messageCaptor.capture()
+        );
+
+        assertEquals(
+                "requestReplyRepliesDemo-out-0",
+                destinationCaptor.getValue()
+        );
+
+        assertEquals(
+                "requestReply/response/{StagePlaceholder}/itTests",
+                messageCaptor.getValue().getHeaders().getReplyChannel()
+        );
+
+        assertEquals(
+                "the/request/topic",
+                messageCaptor.getValue().getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+        );
+
+        assertNotNull(
+                messageCaptor.getValue().getHeaders().get("correlationId")
+        );
+
+        assertEquals(
+                request,
+                messageCaptor.getValue().getPayload()
+        );
+    }
+
+    @Test
+    void requestAndAwaitReplyToBindingWithMsg_expectMsgSendAndException_whenNoResponse() {
+        SensorReading requestContent = new SensorReading();
+        requestContent.setSensorID("toilet");
+
+        assertThrows(TimeoutException.class, () -> requestReplyService.requestAndAwaitReplyToBinding(
+                MessageBuilder.withPayload(requestContent)
+                        .setHeader("solace_correlationId", "theMessageId2")
+                        .build(),
+                "requestReplyRepliesDemo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        ));
+
+        Mockito.verify(streamBridge).send(
+                destinationCaptor.capture(),
+                messageCaptor.capture()
+        );
+
+        assertEquals(
+                "requestReply/response/{StagePlaceholder}/itTests",
+                messageCaptor.getValue().getHeaders().getReplyChannel()
+        );
+
+        assertEquals(
+                "the/request/topic",
+                messageCaptor.getValue().getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+        );
+
+        assertEquals(
+                "requestReply/response/{StagePlaceholder}/itTests",
+                messageCaptor.getValue().getHeaders().getReplyChannel()
+        );
+
+        assertEquals(
+                "theMessageId2",
+                messageCaptor.getValue().getHeaders().get("correlationId")
+        );
+
+        assertEquals(
+                requestContent,
+                messageCaptor.getValue().getPayload()
+        );
+    }
+
+    @Test
+    void requestAndAwaitReplyToBinding_expectMsgSendAdnReturnResponse_whenResponseSend() throws InterruptedException, TimeoutException {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        SensorReading expectedResponse = new SensorReading();
+        expectedResponse.setSensorID("livingroom");
+
+        // Receive message and mck the response.
+        Mockito.when(streamBridge.send(
+                anyString(),
+                any(Message.class)
+        )).thenAnswer(invocation -> {
+            Message<SensorReading> msg = invocation.getArgument(1);
+
+            // Simply echo all request header back.
+            requestReplyService.onReplyReceived(
+                    MessageBuilder.createMessage(
+                            expectedResponse,
+                            msg.getHeaders()
+                    )
+            );
+
+            return true;
+        });
+
+
+        SensorReading response = requestReplyService.requestAndAwaitReplyToBinding(
+                request,
+                "requestReplyRepliesDemo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        );
+
+        assertEquals(
+                expectedResponse,
+                response
+        );
+
+        resetMocks();
+    }
+
+
     @Test
     void onReplyReceived_whenNoCorrelationId_thenLogErrorAndNotBlowUp() {
         requestReplyService.onReplyReceived(
-                        MessageBuilder.withPayload(
+                MessageBuilder.withPayload(
                                 "foo"
                         )
                         .build()

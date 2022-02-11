@@ -1,5 +1,6 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.config;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -33,6 +34,6 @@ public class BinderTopicMappings {
     }
 
     Set<Pattern> getTopicPatterns() {
-        return topicPatterns;
+        return topicPatterns == null ? Collections.emptySet() : topicPatterns;
     }
 }

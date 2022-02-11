@@ -28,7 +28,7 @@ public class RequestReplyController {
     public String requestReplySync(
             @RequestBody String data
     ) throws InterruptedException, ExecutionException, TimeoutException {
-        return requestReplyService.requestAndAwaitReply(
+        return requestReplyService.requestAndAwaitReplyToTopic(
                 data,
                 "abb1/abb2/abb3/d-echo/v1/demoApi/requestTopic",
                 String.class,
