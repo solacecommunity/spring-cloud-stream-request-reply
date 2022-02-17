@@ -276,6 +276,14 @@ More precisely:
 - [Spring Cloud Stream Solace Samples](https://solace.com/samples/solace-samples-spring/spring-cloud-stream/)
 
 
+## Compatibility
+
+Tested with:
+
+| SpringBoot 	| SpringCloudStream 	|
+|------------	|-------------------	|
+| 2.4.0      	| 2020.0.0          	|
+| 2.6.1      	| 2021.0.0          	|
 
 <!-- reused links -->
 

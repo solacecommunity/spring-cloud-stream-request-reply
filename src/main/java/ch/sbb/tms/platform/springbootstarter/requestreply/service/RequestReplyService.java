@@ -47,7 +47,7 @@ public class RequestReplyService {
     private static final ExecutorService REQUEST_REPLY_EXECUTOR = Executors.newCachedThreadPool();
     private static final Map<String, ResponseHandler> PENDING_RESPONSES = new ConcurrentHashMap<>();
 
-    @Autowired
+    @Autowired(required = false)
     private StreamBridge streamBridge;
 
     @Autowired
@@ -308,7 +308,7 @@ public class RequestReplyService {
                 }, REQUEST_REPLY_EXECUTOR);
     }
 
-    void onReplyReceived(final Message<?> message) {
+    public void onReplyReceived(final Message<?> message) {
         String correlationId = messageHeaderSupportService.getCorrelationId(message);
 
         if (correlationId == null) {
@@ -323,9 +323,5 @@ public class RequestReplyService {
         else {
             handler.receive(message);
         }
-    }
-
-    public Consumer<Message<?>> requestReplyReplies() {
-        return this::onReplyReceived;
     }
 }

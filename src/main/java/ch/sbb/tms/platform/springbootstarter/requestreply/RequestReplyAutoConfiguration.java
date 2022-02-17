@@ -5,6 +5,7 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply;
 
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyService;
@@ -21,6 +22,7 @@ import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.cloud.function.context.FunctionRegistration;
 import org.springframework.cloud.function.context.FunctionType;
 import org.springframework.cloud.function.context.config.ContextFunctionCatalogAutoConfiguration;
+import org.springframework.cloud.stream.config.BinderFactoryAutoConfiguration;
 import org.springframework.cloud.stream.function.FunctionConfiguration;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.annotation.Bean;
@@ -37,8 +39,14 @@ import org.springframework.messaging.MessageChannel;
 @Configuration
 @ConditionalOnClass({MessageChannel.class})
 @ComponentScan("ch.sbb.tms.platform.springbootstarter.requestreply.service")
-@AutoConfigureAfter({ ContextFunctionCatalogAutoConfiguration.class, PropertySourcesPlaceholderConfigurer.class })
-@AutoConfigureBefore({ FunctionConfiguration.class })
+@AutoConfigureAfter({
+        ContextFunctionCatalogAutoConfiguration.class,
+        PropertySourcesPlaceholderConfigurer.class,
+        BinderFactoryAutoConfiguration.class
+})
+@AutoConfigureBefore({
+        FunctionConfiguration.class
+})
 @Order(Ordered.LOWEST_PRECEDENCE)
 @EnableConfigurationProperties(RequestReplyProperties.class)
 public class RequestReplyAutoConfiguration implements ApplicationContextInitializer<GenericApplicationContext> {
@@ -57,11 +65,14 @@ public class RequestReplyAutoConfiguration implements ApplicationContextInitiali
         return new SolaceHeaderParser();
     }
 
+    @Bean
+    @ConditionalOnMissingBean
+    public RequestReplyService requestReplyService() {
+        return new RequestReplyService();
+    }
+
     @Override
     public void initialize(GenericApplicationContext context) {
-        RequestReplyService requestReplyService = new RequestReplyService();
-        context.registerBean("requestReplyService", RequestReplyService.class, () -> requestReplyService);
-
         RequestReplyProperties requestReplyProperties = Binder.get(context.getEnvironment())
                 .bind("spring.cloud.stream.requestreply", RequestReplyProperties.class)
                 .get();
@@ -70,7 +81,9 @@ public class RequestReplyAutoConfiguration implements ApplicationContextInitiali
             context.registerBean(
                     bindingName,
                     FunctionRegistration.class,
-                    () -> new FunctionRegistration<>(requestReplyService.requestReplyReplies())
+                    () -> new FunctionRegistration<Consumer<Message<?>>>(msg -> {
+                        ((RequestReplyService) context.getBean("requestReplyService")).onReplyReceived(msg);
+                    })
                             .type(new FunctionType(
                                     ResolvableType.forClassWithGenerics(
                                             Consumer.class,
