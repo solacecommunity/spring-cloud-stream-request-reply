@@ -8,6 +8,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.integration.IntegrationMessageHeaderAccessor;
@@ -18,6 +19,7 @@ import org.springframework.messaging.MessageHeaders;
 import ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.RequestReplyMessageHeaderSupportService;
 
+@Disabled
 class RequestReplyMessageHeaderSupportServiceTest extends AbstractRequestReplyIT {
     private static final UnaryOperator<Object> DUMMY_FUNCTION = o -> o;
 

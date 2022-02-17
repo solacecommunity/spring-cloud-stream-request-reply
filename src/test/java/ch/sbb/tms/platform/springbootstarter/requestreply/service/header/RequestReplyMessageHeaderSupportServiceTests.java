@@ -3,6 +3,7 @@ package ch.sbb.tms.platform.springbootstarter.requestreply.service.header;
 import java.util.function.Function;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Disabled
 class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyIT {
 
     @Autowired

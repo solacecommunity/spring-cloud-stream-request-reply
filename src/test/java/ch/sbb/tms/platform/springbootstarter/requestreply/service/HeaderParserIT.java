@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.util.List;
 import java.util.UUID;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.integration.IntegrationMessageHeaderAccessor;
@@ -21,6 +22,7 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
 
+@Disabled
 class HeaderParserIT extends AbstractRequestReplyIT {
     @Autowired
     RequestReplyMessageHeaderSupportService headerSupport;
