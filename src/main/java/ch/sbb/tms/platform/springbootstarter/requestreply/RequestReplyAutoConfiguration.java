@@ -8,7 +8,6 @@ import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -54,9 +53,6 @@ public class RequestReplyAutoConfiguration implements ApplicationContextInitiali
     private static final int SOLACE_CONFIGURERS_PRIORITY = 200;
 
     private static final Logger LOG = LoggerFactory.getLogger(RequestReplyAutoConfiguration.class);
-
-    @Autowired
-    private RequestReplyProperties requestReplyProperties;
 
     @Bean
     @Order(SOLACE_CONFIGURERS_PRIORITY)
