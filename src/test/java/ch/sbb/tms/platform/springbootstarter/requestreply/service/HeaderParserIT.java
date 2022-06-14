@@ -22,7 +22,6 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
 
-@Disabled
 class HeaderParserIT extends AbstractRequestReplyIT {
     @Autowired
     RequestReplyMessageHeaderSupportService headerSupport;

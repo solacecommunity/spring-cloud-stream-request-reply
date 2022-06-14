@@ -19,7 +19,6 @@ import org.springframework.messaging.MessageHeaders;
 import ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.RequestReplyMessageHeaderSupportService;
 
-@Disabled
 class RequestReplyMessageHeaderSupportServiceTest extends AbstractRequestReplyIT {
     private static final UnaryOperator<Object> DUMMY_FUNCTION = o -> o;
 
