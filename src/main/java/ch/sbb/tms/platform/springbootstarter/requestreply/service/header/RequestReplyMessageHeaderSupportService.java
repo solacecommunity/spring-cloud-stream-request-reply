@@ -1,13 +1,10 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.service.header;
 
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.function.Function;
-
-import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.correlationid.MessageCorrelationIdParser;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.binder.BinderHeaders;
@@ -15,6 +12,11 @@ import org.springframework.integration.support.MessageBuilder;
 import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Service;
+
+import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.correlationid.MessageCorrelationIdParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
 
 @Service
 public class RequestReplyMessageHeaderSupportService {
@@ -90,5 +92,9 @@ public class RequestReplyMessageHeaderSupportService {
         if (replyToDestination != null) {
             mb.setHeader(BinderHeaders.TARGET_DESTINATION, requestReplyProperties.replaceVariables(replyToDestination));
         }
+
+        final List<String> headersToCopy = requestReplyProperties.getCopyHeadersOnWrap();
+        mb.copyHeadersIfAbsent(request.getHeaders().entrySet().stream().filter(e -> headersToCopy.contains(e.getKey()))
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue)));
     }
 }
