@@ -1,6 +1,7 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.integration.support;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -8,7 +9,6 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.integration.IntegrationMessageHeaderAccessor;
@@ -62,5 +62,29 @@ class RequestReplyMessageHeaderSupportServiceTest extends AbstractRequestReplyIT
                 msg.getHeaders().get(MessageHeaders.ID).toString(), //
                 result.getHeaders().get(IntegrationMessageHeaderAccessor.CORRELATION_ID).toString() //
         );
+    }
+
+    @Test
+    void additionalHeadersDefinedShouldBeCopied() {
+        String encodingHeaderKey = "encoding";
+        String encodingHeaderValue = "ProtoBuf";
+        String dummyHeaderKey = "dummy";
+        Object dummyHeaderValue = UUID.randomUUID();
+        String unknownHeaderKey = "unknownHeader";
+
+        Message msg = MessageBuilder.withPayload("existingCorrelationIdShouldBePickedUpFromRequest") //
+                .setHeader(encodingHeaderKey, encodingHeaderValue) //
+                .setHeader(dummyHeaderKey, dummyHeaderValue) //
+                .setHeader(unknownHeaderKey, UUID.randomUUID()) //
+                .build();
+
+        Message result = testFunction.apply(msg);
+
+        MessageHeaders messageHeaders = msg.getHeaders();
+        MessageHeaders resultHeaders = result.getHeaders();
+
+        assertEquals(messageHeaders.get(encodingHeaderKey).toString(), resultHeaders.get(encodingHeaderKey).toString());
+        assertEquals(messageHeaders.get(dummyHeaderKey).toString(), resultHeaders.get(dummyHeaderKey).toString());
+        assertFalse(resultHeaders.containsKey(unknownHeaderKey));
     }
 }

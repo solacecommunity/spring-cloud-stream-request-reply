@@ -6,6 +6,7 @@ spring:
       definition: requestReplyRepliesDemo
     stream:
       requestreply:
+        copyHeadersOnWrap: encoding,dummy
         bindingMapping:
           - binding: requestReplyRepliesDemo
             replyTopic: requestReply/response/{StagePlaceholder}/itTests

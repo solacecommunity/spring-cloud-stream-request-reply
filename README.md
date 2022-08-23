@@ -142,13 +142,21 @@ And replace all `{someThing}` to the wildcard (second parameter) `*`
 ![reply topic replace wildcard](doc/replyTopicWithWildcards.png)
 
 #### For replier
+In general, if you want to answer to a message, you do not need this library. Instead you can simply send the response
+to the topic defined in the reply to header and reply all requested header.
 
-You want to answer to a message, in general you not need this lib.
-Simple response to the reply to header and reply all requested header.
+However, the method `RequestReplyMessageHeaderSupportService.wrap` from this library can support in creating the
+response with properly setting the message headers, as well as with substituting variables in dynamic topics.
 
-Or let this do the helper methode `RequestReplyMessageHeaderSupportService.wrap` from this library.
+By default the wrapping function will set the correlationId and reply destination headers of the message. Additional
+headers can be configured to be copied from the request by setting `spring.cloud.stream.requestReply.copyHeadersOnWrap`
+accordingly, e.g.:
 
-You not need any configuration to use this.
+```properties
+spring.cloud.stream.requestReply.copyHeadersOnWrap=encoding,yetAnotherHeader
+```
+
+The actual Wrapping can be used as in the example below:
 
 ```java
 public class PingPongConfig {
