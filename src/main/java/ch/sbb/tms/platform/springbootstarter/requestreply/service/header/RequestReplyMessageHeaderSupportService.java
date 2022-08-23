@@ -1,16 +1,15 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.service.header;
 
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHeaders;
 import org.springframework.stereotype.Service;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
@@ -93,8 +92,13 @@ public class RequestReplyMessageHeaderSupportService {
             mb.setHeader(BinderHeaders.TARGET_DESTINATION, requestReplyProperties.replaceVariables(replyToDestination));
         }
 
-        final List<String> headersToCopy = requestReplyProperties.getCopyHeadersOnWrap();
-        mb.copyHeadersIfAbsent(request.getHeaders().entrySet().stream().filter(e -> headersToCopy.contains(e.getKey()))
-                .collect(Collectors.toMap(Entry::getKey, Entry::getValue)));
+        MessageHeaders requestHeaders = request.getHeaders();
+        for (String headerToCopy : requestReplyProperties.getCopyHeadersOnWrap()) {
+            Object val = requestHeaders.get(headerToCopy);
+
+            if (val != null) {
+                mb.setHeaderIfAbsent(headerToCopy, val);
+            }
+        }
     }
 }
