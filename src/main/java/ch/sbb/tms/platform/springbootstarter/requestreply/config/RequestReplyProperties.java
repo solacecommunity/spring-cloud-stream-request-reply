@@ -1,6 +1,7 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.config;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,9 +15,21 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("spring.cloud.stream.requestreply")
 public class RequestReplyProperties {
-
+    private List<String> copyHeadersOnWrap = new ArrayList<>();
     private List<BinderTopicMappings> bindingMapping = new ArrayList<>();
     private Map<String, String> variableReplacements = new HashMap<>();
+
+    public List<String> getCopyHeadersOnWrap() {
+        return Collections.unmodifiableList(copyHeadersOnWrap);
+    }
+
+    public void setCopyHeadersOnWrap(List<String> copyHeadersOnWrap) {
+        this.copyHeadersOnWrap.clear();
+
+        if (copyHeadersOnWrap != null) {
+            this.copyHeadersOnWrap.addAll(copyHeadersOnWrap);
+        }
+    }
 
     public Set<String> getBindingMappingNames() {
         return bindingMapping.stream()

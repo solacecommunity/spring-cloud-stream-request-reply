@@ -4,17 +4,18 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
-import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.correlationid.MessageCorrelationIdParser;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHeaders;
 import org.springframework.stereotype.Service;
+
+import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.correlationid.MessageCorrelationIdParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
 
 @Service
 public class RequestReplyMessageHeaderSupportService {
@@ -89,6 +90,15 @@ public class RequestReplyMessageHeaderSupportService {
         String replyToDestination = getReplyTo(request);
         if (replyToDestination != null) {
             mb.setHeader(BinderHeaders.TARGET_DESTINATION, requestReplyProperties.replaceVariables(replyToDestination));
+        }
+
+        MessageHeaders requestHeaders = request.getHeaders();
+        for (String headerToCopy : requestReplyProperties.getCopyHeadersOnWrap()) {
+            Object val = requestHeaders.get(headerToCopy);
+
+            if (val != null) {
+                mb.setHeaderIfAbsent(headerToCopy, val);
+            }
         }
     }
 }
