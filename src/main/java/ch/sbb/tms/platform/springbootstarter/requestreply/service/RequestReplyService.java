@@ -149,7 +149,12 @@ public class RequestReplyService {
         final AtomicReference<A> returnValue = new AtomicReference<>();
 
         @SuppressWarnings("unchecked")
-        Consumer<Message<?>> responseConsumer = msg -> returnValue.set((A) messageConverter.fromMessage(msg, expectedClass));
+        Consumer<Message<?>> responseConsumer = msg -> {
+            returnValue.set(
+                    expectedClass.isAssignableFrom(msg.getPayload().getClass()) ? (A) msg.getPayload()
+                            : (A) messageConverter.fromMessage(msg, expectedClass)
+            );
+        };
 
         return requestReply(
                 request,
@@ -182,7 +187,12 @@ public class RequestReplyService {
         final AtomicReference<A> returnValue = new AtomicReference<>();
 
         @SuppressWarnings("unchecked")
-        Consumer<Message<?>> responseConsumer = msg -> returnValue.set((A) messageConverter.fromMessage(msg, expectedClass));
+        Consumer<Message<?>> responseConsumer = msg -> {
+            returnValue.set(
+                    expectedClass.isAssignableFrom(msg.getPayload().getClass()) ? (A) msg.getPayload()
+                            : (A) messageConverter.fromMessage(msg, expectedClass)
+            );
+        };
 
         String bindingName = requestReplyProperties
                 .findMatchingBinder(requestDestination)

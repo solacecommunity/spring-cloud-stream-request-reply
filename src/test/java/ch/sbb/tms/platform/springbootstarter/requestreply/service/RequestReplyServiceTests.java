@@ -2,10 +2,10 @@ package ch.sbb.tms.platform.springbootstarter.requestreply.service;
 
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT;
 import ch.sbb.tms.platform.springbootstarter.requestreply.model.SensorReading;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -123,14 +123,14 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToTopic_expectMsgSendAdnReturnResponse_whenResponseSend() throws InterruptedException, TimeoutException {
+    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnResponse_whenResponseSend() throws InterruptedException, TimeoutException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
         SensorReading expectedResponse = new SensorReading();
         expectedResponse.setSensorID("livingroom");
 
-        // Receive message and mck the response.
+        // Receive message and mock the response.
         Mockito.when(streamBridge.send(
                 anyString(),
                 any(Message.class)
@@ -140,6 +140,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
             // Simply echo all request header back.
             requestReplyService.onReplyReceived(
                     MessageBuilder.createMessage(
+                            // RR-Service must not unpack payload
                             expectedResponse,
                             msg.getHeaders()
                     )
@@ -164,6 +165,47 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
         resetMocks();
     }
 
+    @Test
+    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws InterruptedException, TimeoutException {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        SensorReading expectedResponse = new SensorReading();
+        expectedResponse.setSensorID("livingroom");
+
+        // Receive message and mock the response.
+        Mockito.when(streamBridge.send(
+                anyString(),
+                any(Message.class)
+        )).thenAnswer(invocation -> {
+            Message<SensorReading> msg = invocation.getArgument(1);
+
+            // Simply echo all request header back.
+            requestReplyService.onReplyReceived(
+                    MessageBuilder.createMessage(
+                            // RR-Service must unpack payload
+                            new AtomicReference<>(expectedResponse),
+                            msg.getHeaders()
+                    )
+            );
+
+            return true;
+        });
+
+        SensorReading response = requestReplyService.requestAndAwaitReplyToTopic(
+                request,
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        );
+
+        assertEquals(
+                expectedResponse,
+                response
+        );
+
+        resetMocks();
+    }
 
     @Test
     void requestAndAwaitReplyToBinding_expectMsgSendAndException_whenNoResponse() {
@@ -253,7 +295,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToBinding_expectMsgSendAdnReturnResponse_whenResponseSend() throws InterruptedException, TimeoutException {
+    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnResponse_whenResponseSend() throws InterruptedException, TimeoutException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -270,6 +312,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
             // Simply echo all request header back.
             requestReplyService.onReplyReceived(
                     MessageBuilder.createMessage(
+                            // RR-Service must not unpack payload
                             expectedResponse,
                             msg.getHeaders()
                     )
@@ -294,6 +337,48 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
         resetMocks();
     }
 
+    @Test
+    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws InterruptedException, TimeoutException {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        SensorReading expectedResponse = new SensorReading();
+        expectedResponse.setSensorID("livingroom");
+
+        // Receive message and mck the response.
+        Mockito.when(streamBridge.send(
+                anyString(),
+                any(Message.class)
+        )).thenAnswer(invocation -> {
+            Message<SensorReading> msg = invocation.getArgument(1);
+
+            // Simply echo all request header back.
+            requestReplyService.onReplyReceived(
+                    MessageBuilder.createMessage(
+                            // RR-Service must unpack payload
+                            new AtomicReference<>(expectedResponse),
+                            msg.getHeaders()
+                    )
+            );
+
+            return true;
+        });
+
+
+        SensorReading response = requestReplyService.requestAndAwaitReplyToBinding(
+                request,
+                "requestReplyRepliesDemo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        );
+
+        assertEquals(
+                expectedResponse,
+                response
+        );
+
+        resetMocks();
+    }
 
     @Test
     void onReplyReceived_whenNoCorrelationId_thenLogErrorAndNotBlowUp() {
