@@ -10,7 +10,7 @@
 
 	<groupId>ch.sbb.tms.platform</groupId>
 	<artifactId>spring-boot-starter-request-reply</artifactId>
-	<version>2.9.0-SNAPSHOT</version>
+	<version>2.9.0</version>
 	<name>spring-boot-starter-request-reply</name>
 	<description>Spring Boot Starter project to provide request and reply functionality to Spring Cloud Stream projects</description>
 
