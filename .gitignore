@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+
+### migration tools ###
+spring-boot-migrator.log
+/.rewrite-cache/
