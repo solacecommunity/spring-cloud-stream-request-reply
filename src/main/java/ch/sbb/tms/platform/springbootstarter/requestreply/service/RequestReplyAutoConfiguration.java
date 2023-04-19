@@ -2,10 +2,12 @@
  * Copyright © Schweizerische Bundesbahnen SBB, 2021.
  */
 
-package ch.sbb.tms.platform.springbootstarter.requestreply;
+package ch.sbb.tms.platform.springbootstarter.requestreply.service;
 
 import java.util.function.Consumer;
 
+import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.SolaceHeaderParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,15 +29,10 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
-import org.springframework.core.Ordered;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.annotation.Order;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
-
-import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyService;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.SolaceHeaderParser;
 
 @Configuration
 @ConditionalOnClass({MessageChannel.class})
@@ -48,7 +45,7 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.
 @AutoConfigureBefore({
 		FunctionConfiguration.class
 })
-@Order(Ordered.LOWEST_PRECEDENCE)
+@Order()
 @EnableConfigurationProperties(RequestReplyProperties.class)
 public class RequestReplyAutoConfiguration implements ApplicationContextInitializer<GenericApplicationContext> {
 	private static final int SOLACE_CONFIGURERS_PRIORITY = 200;
@@ -68,8 +65,8 @@ public class RequestReplyAutoConfiguration implements ApplicationContextInitiali
 
 	@Bean
 	@ConditionalOnMissingBean
-	public RequestReplyService requestReplyService() {
-		return new RequestReplyService();
+	public RequestReplyServiceImpl requestReplyService() {
+		return new RequestReplyServiceImpl();
 	}
 
 	@Override
@@ -88,9 +85,9 @@ public class RequestReplyAutoConfiguration implements ApplicationContextInitiali
 			context.registerBean(
 					bindingName,
 					FunctionRegistration.class,
-					() -> new FunctionRegistration<Consumer<Message<?>>>(msg -> {
-						((RequestReplyService) context.getBean("requestReplyService")).onReplyReceived(msg);
-					})
+					() -> new FunctionRegistration<Consumer<Message<?>>>(msg ->
+						((RequestReplyServiceImpl) context.getBean("requestReplyService")).onReplyReceived(msg)
+					)
 							.type(new FunctionType(
 									ResolvableType.forClassWithGenerics(
 											Consumer.class,

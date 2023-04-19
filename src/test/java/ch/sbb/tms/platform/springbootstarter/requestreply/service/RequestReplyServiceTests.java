@@ -33,7 +33,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     @MockBean
     private StreamBridge streamBridge;
     @Autowired
-    private RequestReplyService requestReplyService;
+    private RequestReplyServiceImpl requestReplyService;
 
     @Test
     void requestAndAwaitReplyToTopic_expectMsgSendAndException_whenNoResponse() {
