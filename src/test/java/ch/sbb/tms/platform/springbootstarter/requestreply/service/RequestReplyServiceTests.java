@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mockito;
+import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -123,7 +125,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnResponse_whenResponseSend() throws InterruptedException, TimeoutException {
+    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -166,7 +168,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws InterruptedException, TimeoutException {
+    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -295,7 +297,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnResponse_whenResponseSend() throws InterruptedException, TimeoutException {
+    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -338,7 +340,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws InterruptedException, TimeoutException {
+    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -399,5 +401,220 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
                         .setHeader("correlationId", "demooo")
                         .build()
         );
+    }
+
+    @Test
+    void requestReplyToTopicReactive_expectMsgSendAndException_whenNoResponse() {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        Flux<SensorReading> flux = requestReplyService.requestReplyToTopicReactive(
+                request,
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        );
+
+        StepVerifier
+                .create(flux)
+                .expectNextCount(0)
+                .expectErrorMatches(t -> t instanceof TimeoutException)
+                .verify(Duration.ofSeconds(10));
+
+        Mockito.verify(streamBridge).send(
+                destinationCaptor.capture(),
+                messageCaptor.capture()
+        );
+
+        assertEquals(
+                "requestReplyRepliesDemo-out-0",
+                destinationCaptor.getValue()
+        );
+
+        assertEquals(
+                "requestReply/response/{StagePlaceholder}/itTests",
+                messageCaptor.getValue().getHeaders().getReplyChannel()
+        );
+
+        assertEquals(
+                "last_value/temperature/celsius/demo",
+                messageCaptor.getValue().getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+        );
+
+        assertNotNull(
+                messageCaptor.getValue().getHeaders().get("correlationId")
+        );
+
+        assertEquals(
+                request,
+                messageCaptor.getValue().getPayload()
+        );
+    }
+
+    @Test
+    void requestReplyToTopicReactive_expectMsgSendAndReturnResponse_whenResponseSend() {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        SensorReading expectedResponseA = new SensorReading();
+        expectedResponseA.setSensorID("livingroom");
+
+        SensorReading expectedResponseB = new SensorReading();
+        expectedResponseA.setSensorID("bedroom");
+
+        SensorReading expectedResponseC = new SensorReading();
+        expectedResponseA.setSensorID("garage");
+
+        // Receive message and mock the response.
+        Mockito.when(streamBridge.send(
+                anyString(),
+                any(Message.class)
+        )).thenAnswer(invocation -> {
+            Message<SensorReading> msg = invocation.getArgument(1);
+
+            // Simply echo all request header back.
+            requestReplyService.onReplyReceived(
+                    MessageBuilder.createMessage(
+                            // RR-Service must not unpack payload
+                            expectedResponseA,
+                            msg.getHeaders()
+                    )
+            );
+            requestReplyService.onReplyReceived(
+                    MessageBuilder.createMessage(
+                            expectedResponseB,
+                            msg.getHeaders()
+                    )
+            );
+            requestReplyService.onReplyReceived(
+                    MessageBuilder.createMessage(
+                            expectedResponseC,
+                            msg.getHeaders()
+                    )
+            );
+
+            return true;
+        });
+
+
+        Flux<SensorReading> flux = requestReplyService.requestReplyToTopicReactive(
+                request,
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        );
+
+        StepVerifier
+                .create(flux)
+                .expectNext(expectedResponseA)
+                .expectNext(expectedResponseB)
+                .expectNext(expectedResponseC)
+                .expectComplete()
+                .verify(Duration.ofSeconds(10));
+
+        resetMocks();
+    }
+
+    @Test
+    void requestReplyToTopicReactive_expectMsgSendAndReturnEmptyList_whenResponseHasTotalRepliesNull() {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        // Receive message and mock the response.
+        Mockito.when(streamBridge.send(
+                anyString(),
+                any(Message.class)
+        )).thenAnswer(invocation -> {
+            Message<SensorReading> msg = invocation.getArgument(1);
+
+            requestReplyService.onReplyReceived(
+                    MessageBuilder
+                            .fromMessage(msg)
+                            .setHeader("totalReplies", "0")
+                            .build()
+            );
+
+            return true;
+        });
+
+
+        Flux<SensorReading> flux = requestReplyService.requestReplyToTopicReactive(
+                request,
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        );
+
+        StepVerifier
+                .create(flux)
+                .expectNextCount(0)
+                .expectComplete()
+                .verify(Duration.ofSeconds(10));
+
+        resetMocks();
+    }
+
+    @Test
+    void requestReplyToBindingReactive_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        SensorReading expectedResponseA = new SensorReading();
+        expectedResponseA.setSensorID("livingroom");
+
+        SensorReading expectedResponseB = new SensorReading();
+        expectedResponseA.setSensorID("bedroom");
+
+        SensorReading expectedResponseC = new SensorReading();
+        expectedResponseA.setSensorID("garage");
+
+        // Receive message and mck the response.
+        Mockito.when(streamBridge.send(
+                anyString(),
+                any(Message.class)
+        )).thenAnswer(invocation -> {
+            Message<SensorReading> msg = invocation.getArgument(1);
+
+            // Simply echo all request header back.
+            requestReplyService.onReplyReceived(
+                    MessageBuilder.createMessage(
+                            // RR-Service must unpack payload
+                            new AtomicReference<>(expectedResponseA),
+                            msg.getHeaders()
+                    )
+            );
+            requestReplyService.onReplyReceived(
+                    MessageBuilder.createMessage(
+                            new AtomicReference<>(expectedResponseB),
+                            msg.getHeaders()
+                    )
+            );
+            requestReplyService.onReplyReceived(
+                    MessageBuilder.createMessage(
+                            new AtomicReference<>(expectedResponseC),
+                            msg.getHeaders()
+                    )
+            );
+
+            return true;
+        });
+
+
+        Flux<SensorReading> flux = requestReplyService.requestReplyToBindingReactive(
+                request,
+                "requestReplyRepliesDemo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        );
+
+        StepVerifier
+                .create(flux)
+                .expectNext(expectedResponseA)
+                .expectNext(expectedResponseB)
+                .expectNext(expectedResponseC)
+                .expectComplete()
+                .verify(Duration.ofSeconds(10));
+
+        resetMocks();
     }
 }

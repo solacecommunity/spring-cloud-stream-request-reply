@@ -1,155 +1,164 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.7.10</version>
-		<relativePath /> <!-- lookup parent from repository -->
-	</parent>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.10</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
 
-	<groupId>ch.sbb.tms.platform</groupId>
-	<artifactId>spring-boot-starter-request-reply</artifactId>
-	<version>2.10.0-SNAPSHOT</version>
-	<name>spring-boot-starter-request-reply</name>
-	<description>Spring Boot Starter project to provide request and reply functionality to Spring Cloud Stream projects</description>
+    <groupId>ch.sbb.tms.platform</groupId>
+    <artifactId>spring-boot-starter-request-reply</artifactId>
+    <version>2.10.0-SNAPSHOT</version>
+    <name>spring-boot-starter-request-reply</name>
+    <description>Spring Boot Starter project to provide request and reply functionality to Spring Cloud Stream
+        projects
+    </description>
 
-	<properties>
-		<java.version>11</java.version>
-		<solace-spring-cloud.version>2.4.0</solace-spring-cloud.version>
-		<spring-cloud.version>2021.0.4</spring-cloud.version>
-		<commons-logging.version>1.2</commons-logging.version>
-	</properties>
+    <properties>
+        <java.version>11</java.version>
+        <solace-spring-cloud.version>2.4.0</solace-spring-cloud.version>
+        <spring-cloud.version>2021.0.4</spring-cloud.version>
+        <commons-logging.version>1.2</commons-logging.version>
+    </properties>
 
-	<dependencyManagement>
-		<dependencies>
-			<dependency>
-				<groupId>org.springframework.cloud</groupId>
-				<artifactId>spring-cloud-dependencies</artifactId>
-				<version>${spring-cloud.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
-			
-			<dependency>
-				<groupId>com.solace.spring.cloud</groupId>
-				<artifactId>solace-spring-cloud-bom</artifactId>
-				<version>${solace-spring-cloud.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
-				<optional>true</optional>
-			</dependency>
-			
-		</dependencies>
-	</dependencyManagement>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
 
-	<dependencies>
-		<!-- Spring Boot Starter -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-autoconfigure</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-configuration-processor</artifactId>
-			<optional>true</optional>
-		</dependency>
+            <dependency>
+                <groupId>com.solace.spring.cloud</groupId>
+                <artifactId>solace-spring-cloud-bom</artifactId>
+                <version>${solace-spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+                <optional>true</optional>
+            </dependency>
 
-		<!-- Spring Cloud -->
-		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-stream</artifactId>
-			<exclusions>
-				<exclusion>
-				    <groupId>org.springframework.cloud</groupId>
-				    <artifactId>spring-cloud-function-context</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-function-core</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-function-context</artifactId>
-			<exclusions>
-				<exclusion>
-				    <groupId>org.springframework.cloud</groupId>
-				    <artifactId>spring-cloud-function-core</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		
-		<!-- misc -->
-		<dependency>
-		    <groupId>commons-logging</groupId>
-		    <artifactId>commons-logging</artifactId>
-		    <version>${commons-logging.version}</version>
-		</dependency>
-		<dependency>
-		    <groupId>commons-beanutils</groupId>
-		    <artifactId>commons-beanutils</artifactId>
-		    <version>1.9.4</version>
-		</dependency>
+        </dependencies>
+    </dependencyManagement>
 
-		<!-- Solace -->
-		<dependency>
-			<groupId>com.solace.spring.cloud</groupId>
-			<artifactId>spring-cloud-starter-stream-solace</artifactId>
-			<exclusions>
+    <dependencies>
+        <!-- Spring Boot Starter -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Spring Cloud -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-stream</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.cloud</groupId>
+                    <artifactId>spring-cloud-function-context</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-function-core</artifactId>
+            <!-- brings reactor-core -->
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-function-context</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.cloud</groupId>
+                    <artifactId>spring-cloud-function-core</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- misc -->
+        <dependency>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+            <version>${commons-logging.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-beanutils</groupId>
+            <artifactId>commons-beanutils</artifactId>
+            <version>1.9.4</version>
+        </dependency>
+
+        <!-- Solace -->
+        <dependency>
+            <groupId>com.solace.spring.cloud</groupId>
+            <artifactId>spring-cloud-starter-stream-solace</artifactId>
+            <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
-				<exclusion>
-					<groupId>org.apache.logging.log4j</groupId>
-					<artifactId>log4j-core</artifactId>
-				</exclusion>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-core</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>org.springframework.cloud</groupId>
                     <artifactId>spring-cloud-stream</artifactId>
                 </exclusion>
             </exclusions>
             <optional>true</optional>
-		</dependency>
+        </dependency>
 
-		<!-- test -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-starter-function-web</artifactId>
-			<scope>test</scope>
-			<exclusions>
-				<exclusion>
-				    <groupId>org.springframework.cloud</groupId>
-				    <artifactId>spring-cloud-function-context</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-		    <groupId>org.mockito</groupId>
-		    <artifactId>mockito-inline</artifactId>
-		    <scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-stream</artifactId>
-			<type>test-jar</type>
-			<scope>test</scope>
-			<classifier>test-binder</classifier>
-			<exclusions>
-				<exclusion>
-				    <groupId>org.springframework.cloud</groupId>
-				    <artifactId>spring-cloud-function-context</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-	</dependencies>
+        <!-- test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-function-web</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.cloud</groupId>
+                    <artifactId>spring-cloud-function-context</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-inline</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-stream</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+            <classifier>test-binder</classifier>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.cloud</groupId>
+                    <artifactId>spring-cloud-function-context</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
     <!-- generate sources -->
     <build>
@@ -168,11 +177,11 @@
             </plugin>
         </plugins>
     </build>
-    
-	<scm>
-		<developerConnection>
-			scm:git:https://${git.username}:${git.password}@code.sbb.ch/scm/pt_tms_plattform/spring-boot-starter-request-reply.git
-		</developerConnection>
-		<tag>HEAD</tag>
-	</scm>
+
+    <scm>
+        <developerConnection>
+            scm:git:https://${git.username}:${git.password}@code.sbb.ch/scm/pt_tms_plattform/spring-boot-starter-request-reply.git
+        </developerConnection>
+        <tag>HEAD</tag>
+    </scm>
 </project>

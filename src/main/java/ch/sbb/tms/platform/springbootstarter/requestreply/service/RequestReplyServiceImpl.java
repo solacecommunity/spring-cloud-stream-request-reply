@@ -20,8 +20,11 @@ import javax.validation.constraints.NotNull;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.RequestReplyMessageHeaderSupportService;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -63,83 +66,67 @@ public class RequestReplyServiceImpl implements RequestReplyService {
     @Autowired
     private RequestReplyProperties requestReplyProperties;
 
+    @Override
     public <Q, A> A requestAndAwaitReplyToTopic(
             Q request,
             @NotEmpty String requestDestination,
             Class<A> expectedClass,
             @NotNull @Valid Duration timeoutPeriod
-    ) throws InterruptedException, TimeoutException {
-        try {
-            return requestReplyToTopic(
-                    request,
-                    requestDestination,
-                    expectedClass,
-                    timeoutPeriod
-            ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS);
-        }
-        catch (TimeoutException | ExecutionException te) {
-            throw new TimeoutException(String.format("Failed to collect response: %s: %s",
-                    te.getClass(),
-                    te.getMessage()));
-        }
+    ) throws TimeoutException {
+        return wrapTimeOutException(() ->
+                requestReplyToTopic(
+                        request,
+                        requestDestination,
+                        expectedClass,
+                        timeoutPeriod
+                ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS)
+        );
     }
 
+    @Override
     public <Q, A> A requestAndAwaitReplyToBinding(
             Q request,
             @NotEmpty String bindingName,
             Class<A> expectedClass,
             @NotNull @Valid Duration timeoutPeriod
-    ) throws InterruptedException, TimeoutException {
-        try {
-            return requestReplyToBinding(
-                    request,
-                    bindingName,
-                    expectedClass,
-                    timeoutPeriod
-            ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS);
-        }
-        catch (TimeoutException | ExecutionException te) {
-            throw new TimeoutException(String.format("Failed to collect response: %s: %s",
-                    te.getClass(),
-                    te.getMessage()));
-        }
+    ) throws TimeoutException {
+        return wrapTimeOutException(() ->
+                requestReplyToBinding(
+                        request,
+                        bindingName,
+                        expectedClass,
+                        timeoutPeriod
+                ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS)
+        );
     }
+
+    @Override
     public <Q, A> CompletableFuture<A> requestReplyToBinding(
             Q request,
             @NotEmpty String bindingName,
             Class<A> expectedClass,
             @NotNull @Valid Duration timeoutPeriod
-    ) throws TimeoutException {
+    ) {
         final AtomicReference<A> returnValue = new AtomicReference<>();
-
-        @SuppressWarnings("unchecked")
-        Consumer<Message<?>> responseConsumer = msg -> returnValue.set(
-                expectedClass.isAssignableFrom(msg.getPayload().getClass()) ? (A) msg.getPayload()
-                        : (A) messageConverter.fromMessage(msg, expectedClass)
-        );
 
         return requestReply(
                 request,
                 bindingName,
                 bindingServiceProperties.getBindingDestination(bindingName + "-out-0"),
-                responseConsumer,
-                timeoutPeriod
+                msg -> returnValue.set(extractMsgBody(expectedClass, msg)),
+                timeoutPeriod,
+                false
         ).thenApply(none -> returnValue.get());
     }
 
+    @Override
     public <Q, A> CompletableFuture<A> requestReplyToTopic(
             Q request,
             @NotEmpty String requestDestination,
             Class<A> expectedClass,
             @NotNull @Valid Duration timeoutPeriod
-    ) throws TimeoutException {
+    ) {
         final AtomicReference<A> returnValue = new AtomicReference<>();
-
-        @SuppressWarnings("unchecked")
-        Consumer<Message<?>> responseConsumer = msg -> returnValue.set(
-                expectedClass.isAssignableFrom(msg.getPayload().getClass()) ? (A) msg.getPayload()
-                        : (A) messageConverter.fromMessage(msg, expectedClass)
-        );
 
         String bindingName = requestReplyProperties
                 .findMatchingBinder(requestDestination)
@@ -149,9 +136,82 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 request,
                 bindingName,
                 requestDestination,
-                responseConsumer,
-                timeoutPeriod
+                msg -> returnValue.set(extractMsgBody(expectedClass, msg)),
+                timeoutPeriod,
+                false
         ).thenApply(none -> returnValue.get());
+    }
+
+    @Override
+    public <Q, A> Flux<A> requestReplyToBindingReactive(
+            Q request,
+            @NotEmpty String bindingName,
+            Class<A> expectedClass,
+            @NotNull @Valid Duration timeoutPeriod
+    ) {
+        return Flux.create(fluxSink -> {
+            try {
+                wrapTimeOutException(() -> requestReply(
+                        request,
+                        bindingName,
+                        bindingServiceProperties.getBindingDestination(bindingName + "-out-0"),
+                        fluxResponseConsumer(expectedClass, fluxSink),
+                        timeoutPeriod,
+                        true
+                ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS));
+                fluxSink.complete();
+            }
+            catch (Exception e) {
+                fluxSink.error(e);
+            }
+        });
+    }
+
+    @Override
+    public <Q, A> Flux<A> requestReplyToTopicReactive(
+            Q request,
+            @NotEmpty String requestDestination,
+            Class<A> expectedClass,
+            @NotNull @Valid Duration timeoutPeriod
+    ) {
+        return Flux.create(fluxSink -> {
+            try {
+                String bindingName = requestReplyProperties
+                        .findMatchingBinder(requestDestination)
+                        .orElseThrow(() -> new IllegalArgumentException("Unable to find binding for destination: " + requestDestination + " Please check spring.cloud.stream.requestreply.bindingMapping in your configuration."));
+
+                wrapTimeOutException(() -> requestReply(
+                        request,
+                        bindingName,
+                        requestDestination,
+                        fluxResponseConsumer(expectedClass, fluxSink),
+                        timeoutPeriod,
+                        true
+                ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS));
+                fluxSink.complete();
+            }
+            catch (Exception e) {
+                fluxSink.error(e);
+            }
+        });
+    }
+
+    @NotNull
+    private <A> Consumer<Message<?>> fluxResponseConsumer(Class<A> expectedClass, FluxSink<A> fluxSink) {
+        return msg -> {
+            A payload = extractMsgBody(expectedClass, msg);
+            if (payload != null) {
+                fluxSink.next(payload);
+            }
+        };
+    }
+
+    @Nullable
+    @SuppressWarnings("unchecked")
+    private <A> A extractMsgBody(Class<A> expectedClass, Message<?> msg) {
+        return expectedClass.isAssignableFrom(msg.getPayload().getClass()) ?
+                (A) msg.getPayload() :
+                (A) messageConverter.fromMessage(msg, expectedClass);
     }
 
     /**
@@ -162,6 +222,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
      * @param bindingName the message channel name to send the request to. Example: requestReplyRepliesDemoTibrv
      * @param requestDestination the message channel name to send the request to
      * @param responseConsumer the consumer to handle incoming replies
+     * @param multipleResponses indicator if more than one response can be accepted
      * @return a {@link CompletableFuture} spanning the request and response await time
      */
     private <Q> CompletableFuture<Void> requestReply(
@@ -169,7 +230,8 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             @NotEmpty String bindingName,
             @NotEmpty String requestDestination,
             @NotNull Consumer<Message<?>> responseConsumer,
-            @NotNull @Valid Duration timeoutPeriod
+            @NotNull @Valid Duration timeoutPeriod,
+            boolean multipleResponses
     ) {
         String correlationId = null;
         if (request instanceof Message) {
@@ -213,7 +275,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 .setHeader(BinderHeaders.TARGET_DESTINATION, requestDestinationRaw)
                 .setHeader(MessageHeaders.REPLY_CHANNEL, replyTopic);
 
-        return postRequest(bindingName + "-out-0", correlationId, messageBuilder.build(), responseConsumer, timeoutPeriod);
+        return postRequest(bindingName + "-out-0", correlationId, messageBuilder.build(), responseConsumer, timeoutPeriod, multipleResponses);
     }
 
     private CompletableFuture<Void> postRequest(
@@ -221,23 +283,25 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             String correlationId,
             Message<?> message,
             @NotNull Consumer<Message<?>> responseConsumer,
-            @NotNull @Valid Duration timeoutPeriod
+            @NotNull @Valid Duration timeoutPeriod,
+            boolean multipleResponses
     ) {
         Runnable requestRunnable = () -> {
             LOG.trace("Sending message {}", message);
             streamBridge.send(bindingName, message);
         };
 
-        return postRequest(correlationId, requestRunnable, responseConsumer, timeoutPeriod);
+        return postRequest(correlationId, requestRunnable, responseConsumer, timeoutPeriod, multipleResponses);
     }
 
     private CompletableFuture<Void> postRequest(
             @NotEmpty String correlationId,
             @NotNull Runnable requestRunnable,
             @NotNull Consumer<Message<?>> responseConsumer,
-            @NotNull @Valid Duration timeoutPeriod
+            @NotNull @Valid Duration timeoutPeriod,
+            boolean multipleResponses
     ) {
-        ResponseHandler responseHandler = new ResponseHandler(responseConsumer);
+        ResponseHandler responseHandler = new ResponseHandler(responseConsumer, multipleResponses);
         ResponseHandler previous = PENDING_RESPONSES.putIfAbsent(correlationId, responseHandler);
         if (previous != null) {
             throw new IllegalArgumentException("response for correlation ID " + correlationId + " is already awaited");
@@ -265,6 +329,21 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 }, REQUEST_REPLY_EXECUTOR);
     }
 
+    private <T> T wrapTimeOutException(TimeoutSupplier<T> businessLogic) throws TimeoutException {
+        try {
+            return businessLogic.get();
+        }
+        catch (InterruptedException | TimeoutException | ExecutionException te) {
+            throw new TimeoutException(String.format("Failed to collect response: %s: %s",
+                    te.getClass(),
+                    te.getMessage()));
+        }
+    }
+
+    private interface TimeoutSupplier<T> {
+        T get() throws InterruptedException, TimeoutException, ExecutionException;
+    }
+
     void onReplyReceived(final Message<?> message) {
         String correlationId = messageHeaderSupportService.getCorrelationId(message);
 
@@ -273,11 +352,22 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             return;
         }
 
+        Integer totalReplies = messageHeaderSupportService.getTotalReplies(message);
+
         ResponseHandler handler = PENDING_RESPONSES.get(correlationId);
         if (handler == null) {
             LOG.error("Received unexpected message or maybe too late response: {}", message);
         }
         else {
+            if (totalReplies != null) {
+                handler.setTotalReplies(totalReplies);
+
+                if (totalReplies == 0) {
+                    // null will be filtered. An empty flux will be returned.
+                    handler.emptyResponse();
+                    return;
+                }
+            }
             handler.receive(message);
         }
     }

@@ -1,8 +1,16 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.service.header;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
+
+import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.SpringHeaderParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.correlationid.MessageCorrelationIdParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalReplies.MessageTotalRepliesParser;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.binder.BinderHeaders;
@@ -11,11 +19,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.stereotype.Service;
-
-import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.correlationid.MessageCorrelationIdParser;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
+import org.springframework.util.CollectionUtils;
 
 @Service
 public class RequestReplyMessageHeaderSupportService {
@@ -27,6 +31,9 @@ public class RequestReplyMessageHeaderSupportService {
 
     @Autowired
     private List<MessageReplyToParser> replyToParsers;
+
+    @Autowired
+    private List<MessageTotalRepliesParser> totalRepliesParsers;
 
     @Autowired
     private RequestReplyProperties requestReplyProperties;
@@ -64,6 +71,18 @@ public class RequestReplyMessageHeaderSupportService {
                 .orElse(null);
     }
 
+    public @Nullable
+    Integer getTotalReplies(Message<?> message) {
+        return message == null ? null
+                : totalRepliesParsers
+                .stream()
+                .map(p -> p.getTotalReplies(message))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
+
+
     /**
      * wrap the given function, copying message headers from incoming to outgoing message,
      * properly setting correlation ID and target
@@ -79,6 +98,45 @@ public class RequestReplyMessageHeaderSupportService {
             transferAndAdoptHeaders(request, mb);
             return mb.build();
         };
+    }
+
+    /**
+     * wrap the given function, copying message headers from incoming to outgoing message,
+     * properly setting correlation ID and target
+     *
+     * @param <Q> incoming message payload type
+     * @param <A> outgoing message payload type
+     * @param payloadFunction mapping function from incoming to outgoing payload
+     * @return message with the payload function applied to the incoming message and the message headers prepared for answering
+     */
+    public <Q, A, T extends Function<Q, List<A>>> Function<Message<Q>, List<Message<A>>> wrapList(T payloadFunction) {
+        return request -> {
+            List<A> rawResponses = payloadFunction.apply(request.getPayload());
+
+            List<Message<A>> response = new ArrayList<>();
+
+
+            if (CollectionUtils.isEmpty(rawResponses)) {
+                MessageBuilder<String> mb = MessageBuilder.withPayload("");
+                transferAndAdoptHeaders(request, mb, 0, 0);
+                response.add((Message<A>) mb.build());
+            } else {
+                for (int i = 0; i < rawResponses.size() ; i++) {
+                    MessageBuilder<A> mb = MessageBuilder.withPayload(rawResponses.get(i));
+                    transferAndAdoptHeaders(request, mb, rawResponses.size(), i);
+                    response.add(mb.build());
+                }
+            }
+
+            return response;
+        };
+    }
+
+    private <Q, A> void transferAndAdoptHeaders(Message<Q> request, MessageBuilder<A> mb, int totalReplies, int replyIndex) {
+        transferAndAdoptHeaders(request, mb);
+
+        mb.setHeader(SpringHeaderParser.MULTI_TOTAL_REPLIES, totalReplies);
+        mb.setHeader(SpringHeaderParser.MULTI_REPLY_INDEX, replyIndex);
     }
 
     private <Q, A> void transferAndAdoptHeaders(Message<Q> request, MessageBuilder<A> mb) {

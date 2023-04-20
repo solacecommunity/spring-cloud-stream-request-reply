@@ -64,8 +64,20 @@ spring:
           binder: solace
 ```
 
+###### single response
 ```java
         SensorReading response = requestReplyService.requestAndAwaitReplyToTopic(
+                reading,
+                "requestReply/request/last_value/temperature/celsius/" + location,
+                SensorReading.class,
+                Duration.ofSeconds(30)
+        );
+```
+
+###### multiple responses
+Introduction into [Flux/project reactor](https://www.baeldung.com/reactor-core)
+```java
+        Flux<SensorReading> responses = requestReplyService.requestAndAwaitReplyToTopicReactive(
                 reading,
                 "requestReply/request/last_value/temperature/celsius/" + location,
                 SensorReading.class,
@@ -94,9 +106,21 @@ spring:
           binder: solace
 ```
 
+###### single response
 ```java
         SensorReading response = requestReplyService.requestAndAwaitReplyToBinding(
-                reading,
+                request,
+                "requestReplyRepliesDemo",
+                SensorReading.class,
+                Duration.ofSeconds(30)
+        );
+```
+
+###### multiple responses
+Introduction into [Flux/project reactor](https://www.baeldung.com/reactor-core)
+```java
+        Flux<SensorReading> responses = requestReplyService.requestReplyToBindingReactive(
+                request,
                 "requestReplyRepliesDemo",
                 SensorReading.class,
                 Duration.ofSeconds(30)
@@ -108,7 +132,7 @@ spring:
 ##### How everything is related
 
 When using `requestAndAwaitReplyToBinding` / `requestReplyToTopic`
-The topic u use in the code will be matched against all `spring.cloud.stream.requestreply.bindingMapping[].topicPatterns`,  
+The topic use in the code will be matched against all `spring.cloud.stream.requestreply.bindingMapping[].topicPatterns`,  
 the fist hit will be used.
 ![topic to pattern](doc/requester_topic_to_pattern.png)
 
@@ -142,15 +166,17 @@ And replace all `{someThing}` to the wildcard (second parameter) `*`
 ![reply topic replace wildcard](doc/replyTopicWithWildcards.png)
 
 #### For replier
-In general, if you want to answer to a message, you do not need this library. Instead you can simply send the response
+In general, if you want to answer to a message, you do not need this library. Instead, you can simply send the response
 to the topic defined in the reply to header and reply all requested header.
 
-However, the method `RequestReplyMessageHeaderSupportService.wrap` from this library can support in creating the
-response with properly setting the message headers, as well as with substituting variables in dynamic topics.
+However, the methods `RequestReplyMessageHeaderSupportService.wrap` and `RequestReplyMessageHeaderSupportService.wrapList` 
+from this library can support in creating the response with properly setting the message headers, 
+as well as with substituting variables in dynamic topics.
 
-By default the wrapping function will set the correlationId and reply destination headers of the message. Additional
-headers can be configured to be copied from the request by setting `spring.cloud.stream.requestReply.copyHeadersOnWrap`
-accordingly, e.g.:
+By default, the wrapping function will set the correlationId and reply destination headers of the message.
+In case of multi responses the header for totalReplies and replyIndex will be set as well. 
+Additional headers can be configured to be copied from the request by 
+setting `spring.cloud.stream.requestReply.copyHeadersOnWrap` accordingly, e.g.:
 
 ```properties
 spring.cloud.stream.requestReply.copyHeadersOnWrap=encoding,yetAnotherHeader
@@ -158,21 +184,41 @@ spring.cloud.stream.requestReply.copyHeadersOnWrap=encoding,yetAnotherHeader
 
 The actual Wrapping can be used as in the example below:
 
+##### single response 
 ```java
 public class PingPongConfig {
   @Bean
-  public Function<Message<SensorRequest>, Message<SensorReading>> responseToRequest(RequestReplyMessageHeaderSupportService headerSupport) {
-    return headerSupport.wrap((readingIn) -> {
-      SensorReading reading = new SensorReading();
+  public Function<Message<SensorRequest>, Message<SensorReading>> responseToRequest(
+          RequestReplyMessageHeaderSupportService headerSupport
+  ) {
+    return headerSupport.wrap((request) -> {
+      SensorReading response = new SensorReading();
       ...
 
-      return reading;
+      return response;
     });
   }
 }
 ```
+[Full example](https://code.sbb.ch/projects/TP_TMS_PLATTFORM/repos/springcloudstream-examples/browse/request_reply_response/src/main/java/ch/sbb/tms/springcloudstream/examples/requestreplyresponse/config/PingPongConfig.java)
 
-[Full example](https://code.sbb.ch/projects/TP_TMS_PLATTFORM/repos/springcloudstream-examples/browse/pub_sub_receiving/src/main/java/ch/sbb/tms/springcloudstream/examples/pubsubreceiving/config/PingPongConfig.java)
+##### multiple responses
+```java
+public class PingPongConfig {
+  @Bean
+  public Function<Message<SensorRequest>, List<Message<SensorReading>>> responseMultiToRequest(
+          RequestReplyMessageHeaderSupportService headerSupport
+  ) {
+    return headerSupport.wrapList((request) -> {
+      List<SensorReading> responses = new ArrayList<>();
+      ...
+  
+      return responses;
+    });
+  }
+}
+```
+[Full example](https://code.sbb.ch/projects/TP_TMS_PLATTFORM/repos/springcloudstream-examples/browse/request_reply_response/src/main/java/ch/sbb/tms/springcloudstream/examples/requestreplyresponse/config/PingMultiPongConfig.java)
 
 ##### Variable replacement
 
@@ -215,6 +261,10 @@ The request/reply functionality provided by this starter can be utilized by auto
   sends the given request to the given request destination, returns a future and maps it to the provided class when responses received. Use this only if you have the rare edge case that you need to run multiple request reply in parallel in the same thread.
 - `CompletableFuture<A> requestReplyToBinding(Q request, String bindingName, Class<A> expectedClass, Duration timeoutPeriod)`
   sends the given request to the `destination`configured for the `-out-0`of this binding, returns a future and maps it to the provided class when responses received. Use this only if you have the rare edge case that you need to run multiple request reply in parallel in the same thread.
+- `Flux<A> requestReplyToTopicReactive(Q request, String requestDestination, Class<A> expectedClass, Duration timeoutPeriod)`
+  sends the given request to the given request destination, returns a flux and maps it to the provided class when responses received. Use this if you expect multiple responses for a single questions. For example: if your response type would be an array it is best practice to send those as single messages to avoid to big messages.
+- `Flux<A> requestReplyToBindingReactive(Q request, String bindingName, Class<A> expectedClass, Duration timeoutPeriod)`
+  sends the given request to the `destination`configured for the `-out-0`of this binding, returns a future and maps it to the provided class when responses received. Use this if you expect multiple responses for a single questions. For example: if your response type would be an array it is best practice to send those as single messages to avoid to big messages.
 
 All methods can be used in any combination.
 
@@ -250,6 +300,8 @@ The Starter includes the following message parser interfaces:
   - `MessageHeaderDestinationParser`- extended interface for parsing the destination from an incoming message's MessageHeaders
 - `MessageReplyToParser` - root interface for parsing the reply destination from an incoming message
   - `MessageHeaderReplyToParser` - extended interface for parsing the reply destination from an incoming message's MessageHeaders
+- `MessageTotalRepliesParser` - root interface for parsing the total replies for from an incoming multi response message
+  - `MessageHeaderTotalRepliesParser` - extended interface for parsing the total replies from an incoming multi response message's MessageHeaders
 
 
 
@@ -258,7 +310,7 @@ The starter also includes the following message parser implementations:
 - `SolaceHeaderParser`  _Order: 200_
   implements `MessageHeaderCorrelationIdParser`,  `MessageHeaderDestinationParser`, `MessageHeaderReplyToParser` for the Solace binder
 - `SpringCloudStreamHeaderParser` _Order 10000_
-  implements `MessageHeaderDestinationParser` for standard Spring Cloud Stream headers
+  implements `MessageHeaderDestinationParser`, `MessageTotalRepliesParser` for standard Spring Cloud Stream headers
 - `SpringIntegrationHeaderParser` _Order 20000_
   implements `MessageHeaderCorrelationIdParser` for standard Spring Integration headers
 - `BinderHeaderParser` _Order 30000_

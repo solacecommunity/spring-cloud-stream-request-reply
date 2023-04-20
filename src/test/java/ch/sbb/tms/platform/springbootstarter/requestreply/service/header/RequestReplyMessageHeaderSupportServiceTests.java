@@ -1,9 +1,11 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.service.header;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Function;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT;
-import org.junit.jupiter.api.Disabled;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.SpringHeaderParser;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +64,18 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
     }
 
     @Test
+    void getTotalReplies() {
+        Message<String> m = MessageBuilder.withPayload("demo")
+                .setHeader(SpringHeaderParser.MULTI_TOTAL_REPLIES, 167)
+                .build();
+
+        assertEquals(
+                167,
+                supportService.getTotalReplies(m)
+        );
+    }
+
+    @Test
     void wrap() {
         Function<Message<String>, Message<String>> supplier = supportService.wrap(m -> m);
 
@@ -87,6 +101,101 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
     }
 
     @Test
+    void wrapList() {
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m));
+
+        Message<String> m = MessageBuilder.withPayload("demo")
+                .setHeader("correlationId", "my-correlationId-my")
+                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                .setHeader("custom", "my-custom-my")
+                .build();
+
+        List<Message<String>> answers = supplier.apply(m);
+
+        assertEquals(
+                2,
+                answers.size()
+        );
+
+        assertEquals(
+                "my-correlationId-my",
+                answers.get(0).getHeaders().get("correlationId")
+        );
+        assertEquals(
+                "my-dest-my/p-arcs/the-event-after",
+                answers.get(0).getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+        );
+        assertNull(
+                answers.get(0).getHeaders().get("custom")
+        );
+        assertEquals(
+                answers.get(0).getHeaders().get("totalReplies"),
+                2
+        );
+        assertEquals(
+                answers.get(0).getHeaders().get("replyIndex"),
+                0
+        );
+
+        assertEquals(
+                "my-correlationId-my",
+                answers.get(1).getHeaders().get("correlationId")
+        );
+        assertEquals(
+                "my-dest-my/p-arcs/the-event-after",
+                answers.get(1).getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+        );
+        assertNull(
+                answers.get(1).getHeaders().get("custom")
+        );
+        assertEquals(
+                2,
+                answers.get(1).getHeaders().get("totalReplies")
+        );
+        assertEquals(
+                1,
+                answers.get(1).getHeaders().get("replyIndex")
+        );
+    }
+
+    @Test
+    void wrapList_emptyList_shouldCreateMessageWithTotalRepliesNull() {
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> Collections.emptyList());
+
+        Message<String> m = MessageBuilder.withPayload("demo")
+                .setHeader("correlationId", "my-correlationId-my")
+                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                .setHeader("custom", "my-custom-my")
+                .build();
+
+        List<Message<String>> answers = supplier.apply(m);
+
+        assertEquals(
+                1,
+                answers.size()
+        );
+
+        assertEquals(
+                "my-correlationId-my",
+                answers.get(0).getHeaders().get("correlationId")
+        );
+        assertEquals(
+                "my-dest-my/p-arcs/the-event-after",
+                answers.get(0).getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+        );
+        assertEquals(
+                0,
+                answers.get(0).getHeaders().get("totalReplies")
+        );
+        assertEquals(
+                0,
+                answers.get(0).getHeaders().get("replyIndex")
+        );
+    }
+
+
+
+    @Test
     void replyTopicWithWildcards() {
         assertEquals(
                 "requestReply/response/*/itTests",
@@ -104,7 +213,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
 
         assertTrue(
                 uuidDemoA.matches("uuidDemo/[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}"),
-                () -> "Random UUID4 should be provided"
+                "Random UUID4 should be provided"
         );
     }
 
