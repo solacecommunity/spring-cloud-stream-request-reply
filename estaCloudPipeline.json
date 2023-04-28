@@ -21,7 +21,7 @@
             "isBuildEnabled": true,
             "xrayScanEnabled": false,
             "failOnXrayScan": false,
-            "sonarScanEnabled": false,
+            "sonarScanEnabled": true,
             "triggerBuildOnCommitEnabled": true,
             "additionalBuildParams": "-DskipITs"
         },

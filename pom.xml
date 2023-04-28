@@ -21,6 +21,13 @@
         <solace-spring-cloud.version>2.4.0</solace-spring-cloud.version>
         <spring-cloud.version>2021.0.4</spring-cloud.version>
         <commons-logging.version>1.2</commons-logging.version>
+
+        <sonar.projectKey>${project.groupId}:${project.artifactId}</sonar.projectKey>
+        <sonar.projectName>${project.groupId}:${project.artifactId}</sonar.projectName>
+        <!--suppress UnresolvedMavenProperty -->
+        <sonar.branch.name>${env.GIT_BRANCH}</sonar.branch.name>
+        <sonar.java.source>${java.version}</sonar.java.source>
+        <jacoco-maven-plugin.version>0.8.9</jacoco-maven-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -170,6 +177,25 @@
                         <id>attach-sources</id>
                         <goals>
                             <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>default-prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>default-report</id>
+                        <goals>
+                            <goal>report</goal>
                         </goals>
                     </execution>
                 </executions>
