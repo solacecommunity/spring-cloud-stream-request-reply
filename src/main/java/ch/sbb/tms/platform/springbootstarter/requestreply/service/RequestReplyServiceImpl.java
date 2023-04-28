@@ -180,7 +180,10 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             try {
                 String bindingName = requestReplyProperties
                         .findMatchingBinder(requestDestination)
-                        .orElseThrow(() -> new IllegalArgumentException("Unable to find binding for destination: " + requestDestination + " Please check spring.cloud.stream.requestreply.bindingMapping in your configuration."));
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Unable to find binding for destination: " +
+                                        requestDestination +
+                                        " Please check spring.cloud.stream.requestreply.bindingMapping in your configuration."));
 
                 wrapTimeOutException(() -> requestReply(
                         request,

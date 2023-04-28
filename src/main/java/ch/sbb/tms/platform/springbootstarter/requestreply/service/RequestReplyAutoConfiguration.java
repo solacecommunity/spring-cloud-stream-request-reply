@@ -85,8 +85,8 @@ public class RequestReplyAutoConfiguration implements ApplicationContextInitiali
 			context.registerBean(
 					bindingName,
 					FunctionRegistration.class,
-					() -> new FunctionRegistration<Consumer<Message<?>>>(msg ->
-						((RequestReplyServiceImpl) context.getBean("requestReplyServiceImpl")).onReplyReceived(msg)
+					() -> new FunctionRegistration<Consumer<Message<?>>>(
+						((RequestReplyServiceImpl) context.getBean("requestReplyServiceImpl"))::onReplyReceived
 					)
 							.type(new FunctionType(
 									ResolvableType.forClassWithGenerics(

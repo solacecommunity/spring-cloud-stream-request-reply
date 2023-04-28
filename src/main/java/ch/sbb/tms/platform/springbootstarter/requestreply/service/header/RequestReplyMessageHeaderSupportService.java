@@ -11,7 +11,7 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errormessage.MessageErrorMessageParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalReplies.MessageTotalRepliesParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalreplies.MessageTotalRepliesParser;
 import org.jetbrains.annotations.NotNull;
 
 import org.springframework.beans.factory.annotation.Autowired;

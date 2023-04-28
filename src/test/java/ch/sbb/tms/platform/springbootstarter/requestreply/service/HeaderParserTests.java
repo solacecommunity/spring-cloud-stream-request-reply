@@ -1,26 +1,25 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.service;
 
-import static ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.HttpHeaderParser.HTTP_HEADER_CORRELATION_ID;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-
 import java.util.List;
-
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errormessage.MessageErrorMessageParser;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalReplies.MessageTotalRepliesParser;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.integration.IntegrationMessageHeaderAccessor;
-import org.springframework.integration.support.MessageBuilder;
-import org.springframework.messaging.Message;
-
-import com.solace.spring.cloud.stream.binder.messaging.SolaceHeaders;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.RequestReplyMessageHeaderSupportService;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.correlationid.MessageCorrelationIdParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errormessage.MessageErrorMessageParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalreplies.MessageTotalRepliesParser;
+import com.solace.spring.cloud.stream.binder.messaging.SolaceHeaders;
+import org.junit.jupiter.api.Test;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.integration.IntegrationMessageHeaderAccessor;
+import org.springframework.integration.support.MessageBuilder;
+import org.springframework.messaging.Message;
+
+import static ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.HttpHeaderParser.HTTP_HEADER_CORRELATION_ID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class HeaderParserTests extends AbstractRequestReplyIT {
     @Autowired
@@ -65,7 +64,7 @@ class HeaderParserTests extends AbstractRequestReplyIT {
     @Test
     void totalRepliesParsersShouldNotThrowExceptionWhenGivenNull() {
         for (MessageTotalRepliesParser parser : messageTotalRepliesParsers) {
-            assertNull((parser).getTotalReplies( null), String.format("%s can not handle null values", parser));
+            assertNull((parser).getTotalReplies(null), String.format("%s can not handle null values", parser));
         }
     }
 

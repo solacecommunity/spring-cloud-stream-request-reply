@@ -2,7 +2,7 @@ package ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errormessage.MessageHeaderErrorMessageParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageHeaderReplyToParser;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalReplies.MessageHeaderTotalRepliesParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalreplies.MessageHeaderTotalRepliesParser;
 
 import org.springframework.core.annotation.Order;
 import org.springframework.messaging.MessageHeaders;

@@ -13,6 +13,11 @@ import org.springframework.core.env.StandardEnvironment;
 
 public class ReplyTopicWithWildcardsPropertySource extends PropertySource<ReplyTopicWithWildcards> {
     public static final String PROPERTY_SOURCE_NAME = "replyTopicWithWildcards";
+    public static final int ACTION_INDEX = 1;
+    public static final int BINDING_NAME_INDEX = 1;
+    public static final int WILDCARD_INDEX = 2;
+    public static final int PARAMETER_COUNT_UUID = 2;
+    public static final int PARAMETER_COUNT_REPLACE_WITH_WILDCARDS = 3;
     private ConfigurableEnvironment environment;
     private String uuid;
 
@@ -45,7 +50,7 @@ public class ReplyTopicWithWildcardsPropertySource extends PropertySource<ReplyT
         }
         String[] parts = name.split(Pattern.quote("|"));
 
-        if (parts.length == 2 && Objects.equals(parts[1], "uuid")) {
+        if (parts.length == PARAMETER_COUNT_UUID && Objects.equals(parts[ACTION_INDEX], "uuid")) {
             /**
              * The {rand.uuid} will generate a new uuid each time it was called.
              * But what we need is an uuid that is generated on process start.
@@ -53,10 +58,10 @@ public class ReplyTopicWithWildcardsPropertySource extends PropertySource<ReplyT
             return uuid;
         }
 
-        if (parts.length < 3) {
+        if (parts.length < PARAMETER_COUNT_REPLACE_WITH_WILDCARDS) {
             logger.error("replyTopicWithWildcards: usage is: ${replyTopicWithWildcards|name of the binding|wildcard char for this binder}  Example: ${replyTopicWithWildcards|requestReplyRepliesDemoSolace|*}");
         }
 
-        return source.replaceWithWildcards(parts[1], parts[2], environment);
+        return source.replaceWithWildcards(parts[BINDING_NAME_INDEX], parts[WILDCARD_INDEX], environment);
     }
 }

@@ -1,4 +1,4 @@
-package ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalReplies;
+package ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalreplies;
 
 import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
