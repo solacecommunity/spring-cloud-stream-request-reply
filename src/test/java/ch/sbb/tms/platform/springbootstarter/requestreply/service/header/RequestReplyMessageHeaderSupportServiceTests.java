@@ -17,6 +17,7 @@ import org.springframework.messaging.MessageHeaders;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyIT {
@@ -72,6 +73,18 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
         assertEquals(
                 167,
                 supportService.getTotalReplies(m)
+        );
+    }
+
+    @Test
+    void getErrorMessage() {
+        Message<String> m = MessageBuilder.withPayload("demo")
+                .setHeader(SpringHeaderParser.ERROR_MESSAGE, "Something went wrong")
+                .build();
+
+        assertEquals(
+                "Something went wrong",
+                supportService.getErrorMessage(m)
         );
     }
 
@@ -190,6 +203,127 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
         assertEquals(
                 0,
                 answers.get(0).getHeaders().get("replyIndex")
+        );
+    }
+
+    @Test
+    void wrap_exception_shouldReturnErrorWhenMatch() {
+        Function<Message<String>, Message<String>> supplier = supportService.wrap(
+                m -> {
+                    throw new IllegalArgumentException("The error message");
+                },
+                IllegalArgumentException.class
+        );
+
+        Message<String> m = MessageBuilder.withPayload("demo")
+                .setHeader("correlationId", "my-correlationId-my")
+                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                .setHeader("custom", "my-custom-my")
+                .build();
+
+        Message<String> answers = supplier.apply(m);
+
+        assertEquals(
+                "my-correlationId-my",
+                answers.getHeaders().get("correlationId")
+        );
+        assertEquals(
+                "my-dest-my/p-arcs/the-event-after",
+                answers.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+        );
+        assertEquals(
+                "The error message",
+                answers.getHeaders().get("errorMessage")
+        );
+    }
+
+    @Test
+    void wrap_exception_shouldThrowWhenNotMatch() {
+        Function<Message<String>, Message<String>> supplier = supportService.wrap(
+                m -> {
+                    throw new IllegalArgumentException("The error message");
+                },
+                NullPointerException.class
+        );
+
+        Message<String> m = MessageBuilder.withPayload("demo")
+                .setHeader("correlationId", "my-correlationId-my")
+                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                .setHeader("custom", "my-custom-my")
+                .build();
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> supplier.apply(m));
+
+        assertEquals(
+                "The error message",
+                e.getMessage()
+        );
+    }
+
+    @Test
+    void wrapList_exception_shouldReturnErrorWhenMatch() {
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(
+                m -> {
+                    throw new IllegalArgumentException("The error message");
+                },
+                IllegalArgumentException.class
+        );
+
+        Message<String> m = MessageBuilder.withPayload("demo")
+                .setHeader("correlationId", "my-correlationId-my")
+                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                .setHeader("custom", "my-custom-my")
+                .build();
+
+        List<Message<String>> answers = supplier.apply(m);
+
+        assertEquals(
+                1,
+                answers.size()
+        );
+
+        assertEquals(
+                "my-correlationId-my",
+                answers.get(0).getHeaders().get("correlationId")
+        );
+        assertEquals(
+                "my-dest-my/p-arcs/the-event-after",
+                answers.get(0).getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+        );
+        assertEquals(
+                0,
+                answers.get(0).getHeaders().get("totalReplies")
+        );
+        assertEquals(
+                0,
+                answers.get(0).getHeaders().get("replyIndex")
+        );
+        assertEquals(
+                "The error message",
+                answers.get(0).getHeaders().get("errorMessage")
+        );
+    }
+
+    @Test
+    void wrapList_exception_shouldThrowWhenNotMatch() {
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(
+                m -> {
+                    throw new IllegalArgumentException("The error message");
+                },
+                NullPointerException.class
+        );
+
+        Message<String> m = MessageBuilder.withPayload("demo")
+                .setHeader("correlationId", "my-correlationId-my")
+                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                .setHeader("custom", "my-custom-my")
+                .build();
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> supplier.apply(m));
+
+        assertEquals(
+                "The error message",
+                e.getMessage()
         );
     }
 

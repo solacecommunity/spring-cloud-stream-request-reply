@@ -8,6 +8,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errorMessage.RemoteErrorException;
 import reactor.core.publisher.Flux;
 
 public interface RequestReplyService {
@@ -28,7 +29,7 @@ public interface RequestReplyService {
             @NotEmpty String requestDestination,
             Class<A> expectedClass,
             @NotNull @Valid Duration timeoutPeriod
-    ) throws InterruptedException, TimeoutException;
+    ) throws InterruptedException, TimeoutException, RemoteErrorException;
 
     /**
      * sends the given request to the given message channel, awaits the response and maps it to the provided class as a return value
@@ -46,7 +47,7 @@ public interface RequestReplyService {
             @NotEmpty String bindingName,
             Class<A> expectedClass,
             @NotNull @Valid Duration timeoutPeriod
-    ) throws InterruptedException, TimeoutException;
+    ) throws InterruptedException, TimeoutException, RemoteErrorException;
 
     /**
      * sends the given request to the given message channel, awaits the response and maps it to the provided class as a return value

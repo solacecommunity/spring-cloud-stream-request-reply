@@ -9,8 +9,10 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyPro
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.SpringHeaderParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.correlationid.MessageCorrelationIdParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errorMessage.MessageErrorMessageParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalReplies.MessageTotalRepliesParser;
+import org.jetbrains.annotations.NotNull;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.binder.BinderHeaders;
@@ -34,6 +36,9 @@ public class RequestReplyMessageHeaderSupportService {
 
     @Autowired
     private List<MessageTotalRepliesParser> totalRepliesParsers;
+
+    @Autowired
+    private List<MessageErrorMessageParser> errorMessageParsers;
 
     @Autowired
     private RequestReplyProperties requestReplyProperties;
@@ -81,7 +86,16 @@ public class RequestReplyMessageHeaderSupportService {
                 .findFirst()
                 .orElse(null);
     }
-
+    public @Nullable
+    String getErrorMessage(Message<?> message) {
+        return message == null ? null
+                : errorMessageParsers
+                .stream()
+                .map(p -> p.getErrorMessage(message))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
 
     /**
      * wrap the given function, copying message headers from incoming to outgoing message,
@@ -90,13 +104,26 @@ public class RequestReplyMessageHeaderSupportService {
      * @param <Q> incoming message payload type
      * @param <A> outgoing message payload type
      * @param payloadFunction mapping function from incoming to outgoing payload
+     * @param applicationExceptions A list of exceptions that will return the error to the requestor
      * @return message with the payload function applied to the incoming message and the message headers prepared for answering
      */
-    public <Q, A, T extends Function<Q, A>> Function<Message<Q>, Message<A>> wrap(T payloadFunction) {
+    @SafeVarargs
+    public final <Q, A, T extends Function<Q, A>, E extends Throwable> Function<Message<Q>, Message<A>> wrap(T payloadFunction, Class<E>... applicationExceptions) {
         return request -> {
-            MessageBuilder<A> mb = MessageBuilder.withPayload(payloadFunction.apply(request.getPayload()));
-            transferAndAdoptHeaders(request, mb);
-            return mb.build();
+            try {
+                MessageBuilder<A> mb = MessageBuilder.withPayload(payloadFunction.apply(request.getPayload()));
+                transferAndAdoptHeaders(request, mb);
+                return mb.build();
+            } catch (Exception e) {
+                if (applicationExceptions != null) {
+                    for (Class<E> applicationException : applicationExceptions) {
+                        if (applicationException.isInstance(e)) {
+                            return errorResponse(request, e);
+                        }
+                    }
+                }
+                throw e;
+            }
         };
     }
 
@@ -107,29 +134,53 @@ public class RequestReplyMessageHeaderSupportService {
      * @param <Q> incoming message payload type
      * @param <A> outgoing message payload type
      * @param payloadFunction mapping function from incoming to outgoing payload
+     * @param applicationExceptions A list of exceptions that will return the error to the requestor
      * @return message with the payload function applied to the incoming message and the message headers prepared for answering
      */
-    public <Q, A, T extends Function<Q, List<A>>> Function<Message<Q>, List<Message<A>>> wrapList(T payloadFunction) {
+    @SafeVarargs
+    @SuppressWarnings("unchecked")
+    public final <Q, A, T extends Function<Q, List<A>>, E extends Throwable> Function<Message<Q>, List<Message<A>>> wrapList(T payloadFunction, Class<E>... applicationExceptions) {
         return request -> {
-            List<A> rawResponses = payloadFunction.apply(request.getPayload());
+            try {
+                List<A> rawResponses = payloadFunction.apply(request.getPayload());
 
-            List<Message<A>> response = new ArrayList<>();
+                List<Message<A>> response = new ArrayList<>();
 
 
-            if (CollectionUtils.isEmpty(rawResponses)) {
-                MessageBuilder<String> mb = MessageBuilder.withPayload("");
-                transferAndAdoptHeaders(request, mb, 0, 0);
-                response.add((Message<A>) mb.build());
-            } else {
-                for (int i = 0; i < rawResponses.size() ; i++) {
-                    MessageBuilder<A> mb = MessageBuilder.withPayload(rawResponses.get(i));
-                    transferAndAdoptHeaders(request, mb, rawResponses.size(), i);
-                    response.add(mb.build());
+                if (CollectionUtils.isEmpty(rawResponses)) {
+                    MessageBuilder<String> mb = MessageBuilder.withPayload("");
+                    transferAndAdoptHeaders(request, mb, 0, 0);
+                    response.add((Message<A>) mb.build());
                 }
-            }
+                else {
+                    for (int i = 0; i < rawResponses.size(); i++) {
+                        MessageBuilder<A> mb = MessageBuilder.withPayload(rawResponses.get(i));
+                        transferAndAdoptHeaders(request, mb, rawResponses.size(), i);
+                        response.add(mb.build());
+                    }
+                }
 
-            return response;
+                return response;
+            } catch (Throwable e) {
+                if (applicationExceptions != null) {
+                    for (Class<E> applicationException : applicationExceptions) {
+                        if (applicationException.isInstance(e)) {
+                            return List.of(errorResponse(request, e));
+                        }
+                    }
+                }
+                throw e;
+            }
         };
+    }
+
+    @NotNull
+    @SuppressWarnings("unchecked")
+    private <Q, A> Message<A> errorResponse(Message<Q> request, Throwable e) {
+        MessageBuilder<String> mb = MessageBuilder.withPayload("");
+        transferAndAdoptHeaders(request, mb, 0, 0);
+        mb.setHeader(SpringHeaderParser.ERROR_MESSAGE, e.getMessage());
+        return (Message<A>) mb.build();
     }
 
     private <Q, A> void transferAndAdoptHeaders(Message<Q> request, MessageBuilder<A> mb, int totalReplies, int replyIndex) {

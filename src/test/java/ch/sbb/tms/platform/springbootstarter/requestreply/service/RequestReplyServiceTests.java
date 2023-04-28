@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT;
 import ch.sbb.tms.platform.springbootstarter.requestreply.model.SensorReading;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errorMessage.RemoteErrorException;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -38,7 +39,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     private RequestReplyServiceImpl requestReplyService;
 
     @Test
-    void requestAndAwaitReplyToTopic_expectMsgSendAndException_whenNoResponse() {
+    void requestAndAwaitReplyToTopic_expectException_whenNoResponse() {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -80,7 +81,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToTopicWithMsg_expectMsgSendAndException_whenNoResponse() {
+    void requestAndAwaitReplyToTopicWithMsg_expectException_whenNoResponse() {
         SensorReading requestContent = new SensorReading();
         requestContent.setSensorID("toilet");
 
@@ -125,7 +126,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException {
+    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException, RemoteErrorException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -168,7 +169,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException {
+    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException, RemoteErrorException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -210,7 +211,44 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToBinding_expectMsgSendAndException_whenNoResponse() {
+    void requestAndAwaitReplyToTopic_expectException_whenErrorResponse() {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+        // Receive message and mock the response.
+        Mockito.when(streamBridge.send(
+                anyString(),
+                any(Message.class)
+        )).thenAnswer(invocation -> {
+            Message<SensorReading> msg = invocation.getArgument(1);
+
+            // Simply echo all request header back.
+            requestReplyService.onReplyReceived(
+                    MessageBuilder
+                            .fromMessage(msg)
+                            .setHeader("errorMessage", "Something went wrong")
+                            .build()
+            );
+
+            return true;
+        });
+
+        RemoteErrorException error = assertThrows(RemoteErrorException.class, () -> requestReplyService.requestAndAwaitReplyToTopic(
+                request,
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(10000)
+        ));
+
+        assertEquals(
+                "Something went wrong",
+                error.getMessage()
+        );
+
+        resetMocks();
+    }
+
+    @Test
+    void requestAndAwaitReplyToBinding_expectException_whenNoResponse() {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -252,7 +290,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToBindingWithMsg_expectMsgSendAndException_whenNoResponse() {
+    void requestAndAwaitReplyToBindingWithMsg_expectException_whenNoResponse() {
         SensorReading requestContent = new SensorReading();
         requestContent.setSensorID("toilet");
 
@@ -297,7 +335,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException {
+    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException, RemoteErrorException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -340,7 +378,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException {
+    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException, RemoteErrorException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -383,6 +421,46 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
+    void requestAndAwaitReplyToBinding_expectException_whenErrorResponse() {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        // Receive message and mck the response.
+        Mockito.when(streamBridge.send(
+                anyString(),
+                any(Message.class)
+        )).thenAnswer(invocation -> {
+            Message<SensorReading> msg = invocation.getArgument(1);
+
+            // Simply echo all request header back.
+            requestReplyService.onReplyReceived(
+                    MessageBuilder
+                            .fromMessage(msg)
+                            .setHeader("errorMessage", "Something went wrong")
+                            .build()
+            );
+
+            return true;
+        });
+
+
+        RemoteErrorException error = assertThrows(RemoteErrorException.class, () -> requestReplyService.requestAndAwaitReplyToBinding(
+                request,
+                "requestReplyRepliesDemo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        ));
+
+        assertEquals(
+                "Something went wrong",
+                error.getMessage()
+        );
+
+
+        resetMocks();
+    }
+
+    @Test
     void onReplyReceived_whenNoCorrelationId_thenLogErrorAndNotBlowUp() {
         requestReplyService.onReplyReceived(
                 MessageBuilder.withPayload(
@@ -404,7 +482,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestReplyToTopicReactive_expectMsgSendAndException_whenNoResponse() {
+    void requestReplyToTopicReactive_expectException_whenNoResponse() {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -613,6 +691,86 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
                 .expectNext(expectedResponseB)
                 .expectNext(expectedResponseC)
                 .expectComplete()
+                .verify(Duration.ofSeconds(10));
+
+        resetMocks();
+    }
+
+    @Test
+    void requestReplyToBindingReactive_expectMsgSendAndReturnEmptyList_whenResponseHasError() {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        // Receive message and mock the response.
+        Mockito.when(streamBridge.send(
+                anyString(),
+                any(Message.class)
+        )).thenAnswer(invocation -> {
+            Message<SensorReading> msg = invocation.getArgument(1);
+
+            requestReplyService.onReplyReceived(
+                    MessageBuilder
+                            .fromMessage(msg)
+                            .setHeader("totalReplies", "0")
+                            .setHeader("errorMessage", "Something went wrong")
+                            .build()
+            );
+
+            return true;
+        });
+
+
+        Flux<SensorReading> flux = requestReplyService.requestReplyToTopicReactive(
+                request,
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        );
+
+        StepVerifier
+                .create(flux)
+                .expectNextCount(0)
+                .expectErrorMessage("Something went wrong")
+                .verify(Duration.ofSeconds(10));
+
+        resetMocks();
+    }
+
+    @Test
+    void requestReplyToTopicReactive_expectMsgSendAndReturnEmptyList_whenResponseHasError() {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        // Receive message and mock the response.
+        Mockito.when(streamBridge.send(
+                anyString(),
+                any(Message.class)
+        )).thenAnswer(invocation -> {
+            Message<SensorReading> msg = invocation.getArgument(1);
+
+            requestReplyService.onReplyReceived(
+                    MessageBuilder
+                            .fromMessage(msg)
+                            .setHeader("totalReplies", "0")
+                            .setHeader("errorMessage", "Something went wrong")
+                            .build()
+            );
+
+            return true;
+        });
+
+
+        Flux<SensorReading> flux = requestReplyService.requestReplyToBindingReactive(
+                request,
+                "requestReplyRepliesDemo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        );
+
+        StepVerifier
+                .create(flux)
+                .expectNextCount(0)
+                .expectErrorMessage("Something went wrong")
                 .verify(Duration.ofSeconds(10));
 
         resetMocks();

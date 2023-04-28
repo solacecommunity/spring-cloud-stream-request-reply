@@ -9,6 +9,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyService;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errorMessage.RemoteErrorException;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,7 +28,7 @@ public class RequestReplyController {
     @PostMapping("/reverseText")
     public String requestReplySync(
             @RequestBody String data
-    ) throws InterruptedException, ExecutionException, TimeoutException {
+    ) throws InterruptedException, TimeoutException, RemoteErrorException {
         return requestReplyService.requestAndAwaitReplyToTopic(
                 data,
                 "abb1/abb2/abb3/d-echo/v1/demoApi/requestTopic",

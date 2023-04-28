@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -19,7 +20,9 @@ import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
+import ch.sbb.tms.platform.springbootstarter.requestreply.exception.RequestReplyException;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.RequestReplyMessageHeaderSupportService;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errorMessage.RemoteErrorException;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,7 +75,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             @NotEmpty String requestDestination,
             Class<A> expectedClass,
             @NotNull @Valid Duration timeoutPeriod
-    ) throws TimeoutException {
+    ) throws TimeoutException, RemoteErrorException {
         return wrapTimeOutException(() ->
                 requestReplyToTopic(
                         request,
@@ -89,7 +92,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             @NotEmpty String bindingName,
             Class<A> expectedClass,
             @NotNull @Valid Duration timeoutPeriod
-    ) throws TimeoutException {
+    ) throws TimeoutException, RemoteErrorException {
         return wrapTimeOutException(() ->
                 requestReplyToBinding(
                         request,
@@ -329,11 +332,17 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 }, REQUEST_REPLY_EXECUTOR);
     }
 
-    private <T> T wrapTimeOutException(TimeoutSupplier<T> businessLogic) throws TimeoutException {
+    private <T> T wrapTimeOutException(TimeoutSupplier<T> businessLogic) throws TimeoutException, RemoteErrorException {
         try {
             return businessLogic.get();
         }
         catch (InterruptedException | TimeoutException | ExecutionException te) {
+            if (te instanceof ExecutionException &&
+                    te.getCause() instanceof RequestReplyException &&
+                    te.getCause().getCause() instanceof RemoteErrorException) {
+                throw (RemoteErrorException) te.getCause().getCause();
+            }
+
             throw new TimeoutException(String.format("Failed to collect response: %s: %s",
                     te.getClass(),
                     te.getMessage()));
@@ -353,6 +362,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
         }
 
         Integer totalReplies = messageHeaderSupportService.getTotalReplies(message);
+        String errorMessage = messageHeaderSupportService.getErrorMessage(message);
 
         ResponseHandler handler = PENDING_RESPONSES.get(correlationId);
         if (handler == null) {
@@ -363,12 +373,24 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 handler.setTotalReplies(totalReplies);
 
                 if (totalReplies == 0) {
-                    // null will be filtered. An empty flux will be returned.
-                    handler.emptyResponse();
+                    if (StringUtils.hasText(errorMessage)) {
+                        // null will be filtered. An empty flux will be returned.
+                        handler.errorResponse(errorMessage);
+                    }
+                    else {
+                        // null will be filtered. An empty flux will be returned.
+                        handler.emptyResponse();
+                    }
                     return;
                 }
             }
-            handler.receive(message);
+
+            if (StringUtils.hasText(errorMessage)) {
+                handler.errorResponse(errorMessage);
+            }
+            else {
+                handler.receive(message);
+            }
         }
     }
 }

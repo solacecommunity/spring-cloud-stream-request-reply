@@ -20,10 +20,10 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.RequestReplyMessageHeaderSupportService;
 
 class RequestReplyMessageHeaderSupportServiceTest extends AbstractRequestReplyIT {
-    private static final UnaryOperator<Object> DUMMY_FUNCTION = o -> o;
+    private static final UnaryOperator<String> DUMMY_FUNCTION = o -> o;
 
     private RequestReplyMessageHeaderSupportService messageHeaderSupportService;
-    private Function<Message<Object>, Message<Object>> testFunction;
+    private Function<Message<String>, Message<String>> testFunction;
 
     @Autowired
     protected void setMessageHeaderSupportService(RequestReplyMessageHeaderSupportService messageHeaderSupportService) {
@@ -48,19 +48,19 @@ class RequestReplyMessageHeaderSupportServiceTest extends AbstractRequestReplyIT
 
     @Test
     void existingCorrelationIdShouldBePickedUpFromRequest() {
-        Message msg = MessageBuilder.withPayload("existingCorrelationIdShouldBePickedUpFromRequest") //
-                .setCorrelationId(UUID.randomUUID()) //
+        Message<String> msg = MessageBuilder.withPayload("existingCorrelationIdShouldBePickedUpFromRequest")
+                .setCorrelationId(UUID.randomUUID())
                 .build();
 
-        Message result = testFunction.apply(msg);
+        Message<String> result = testFunction.apply(msg);
 
-        assertEquals( //
-                msg.getHeaders().get(IntegrationMessageHeaderAccessor.CORRELATION_ID).toString(), //
-                result.getHeaders().get(IntegrationMessageHeaderAccessor.CORRELATION_ID).toString() //
+        assertEquals(
+                msg.getHeaders().get(IntegrationMessageHeaderAccessor.CORRELATION_ID).toString(),
+                result.getHeaders().get(IntegrationMessageHeaderAccessor.CORRELATION_ID).toString()
         );
-        assertNotEquals( //
-                msg.getHeaders().get(MessageHeaders.ID).toString(), //
-                result.getHeaders().get(IntegrationMessageHeaderAccessor.CORRELATION_ID).toString() //
+        assertNotEquals(
+                msg.getHeaders().get(MessageHeaders.ID),
+                result.getHeaders().get(IntegrationMessageHeaderAccessor.CORRELATION_ID)
         );
     }
 
@@ -72,19 +72,19 @@ class RequestReplyMessageHeaderSupportServiceTest extends AbstractRequestReplyIT
         Object dummyHeaderValue = UUID.randomUUID();
         String unknownHeaderKey = "unknownHeader";
 
-        Message msg = MessageBuilder.withPayload("existingCorrelationIdShouldBePickedUpFromRequest") //
-                .setHeader(encodingHeaderKey, encodingHeaderValue) //
-                .setHeader(dummyHeaderKey, dummyHeaderValue) //
-                .setHeader(unknownHeaderKey, UUID.randomUUID()) //
+        Message<String> msg = MessageBuilder.withPayload("existingCorrelationIdShouldBePickedUpFromRequest")
+                .setHeader(encodingHeaderKey, encodingHeaderValue)
+                .setHeader(dummyHeaderKey, dummyHeaderValue)
+                .setHeader(unknownHeaderKey, UUID.randomUUID())
                 .build();
 
-        Message result = testFunction.apply(msg);
+        Message<String> result = testFunction.apply(msg);
 
         MessageHeaders messageHeaders = msg.getHeaders();
         MessageHeaders resultHeaders = result.getHeaders();
 
-        assertEquals(messageHeaders.get(encodingHeaderKey).toString(), resultHeaders.get(encodingHeaderKey).toString());
-        assertEquals(messageHeaders.get(dummyHeaderKey).toString(), resultHeaders.get(dummyHeaderKey).toString());
+        assertEquals(messageHeaders.get(encodingHeaderKey), resultHeaders.get(encodingHeaderKey));
+        assertEquals(messageHeaders.get(dummyHeaderKey), resultHeaders.get(dummyHeaderKey));
         assertFalse(resultHeaders.containsKey(unknownHeaderKey));
     }
 }
