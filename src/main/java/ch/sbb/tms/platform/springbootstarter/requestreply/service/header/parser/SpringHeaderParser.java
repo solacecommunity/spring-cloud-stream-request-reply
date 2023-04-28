@@ -1,22 +1,20 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser;
 
-import org.springframework.core.annotation.Order;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.MessageHeaders;
-import org.springframework.stereotype.Service;
-
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errorMessage.MessageErrorMessageParser;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errorMessage.MessageHeaderErrorMessageParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errormessage.MessageHeaderErrorMessageParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageHeaderReplyToParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalReplies.MessageHeaderTotalRepliesParser;
+
+import org.springframework.core.annotation.Order;
+import org.springframework.messaging.MessageHeaders;
+import org.springframework.stereotype.Service;
 
 @Service
 @Order(40000)
 public class SpringHeaderParser implements MessageHeaderReplyToParser, MessageHeaderTotalRepliesParser, MessageHeaderErrorMessageParser {
 
-    public  static String MULTI_TOTAL_REPLIES = "totalReplies";
-    public  static String MULTI_REPLY_INDEX = "replyIndex";
-    public  static String ERROR_MESSAGE = "errorMessage";
+    public final static String MULTI_TOTAL_REPLIES = "totalReplies";
+    public final static String MULTI_REPLY_INDEX = "replyIndex";
+    public final static String ERROR_MESSAGE = "errorMessage";
 
     @Override
     public String getReplyTo(MessageHeaders headers) {
@@ -38,7 +36,8 @@ public class SpringHeaderParser implements MessageHeaderReplyToParser, MessageHe
         if (replies instanceof String) {
             return Integer.parseInt((String) replies);
         }
-        throw new IllegalArgumentException("Invalid datatype for " + MULTI_TOTAL_REPLIES + ": "+ replies.getClass().getName() + " == " + replies);
+        throw new IllegalArgumentException("Invalid datatype for " + MULTI_TOTAL_REPLIES + ": " + replies.getClass()
+                .getName() + " == " + replies);
     }
 
     @Override

@@ -8,7 +8,9 @@ import org.springframework.messaging.MessageHeaders;
 public interface MessageHeaderTotalRepliesParser extends MessageTotalRepliesParser {
     @Override
     default Integer getTotalReplies(Message<?> message) {
-        return message == null ? null : getTotalReplies(message.getHeaders());
+        return message == null ?
+                null :
+                getTotalReplies(message.getHeaders());
     }
 
     @Nullable

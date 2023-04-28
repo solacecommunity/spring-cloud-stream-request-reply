@@ -5,11 +5,10 @@
 package ch.sbb.tms.platform.sampleapp.springbootstarter.requestreply.controller;
 
 import java.time.Duration;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.RequestReplyService;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errorMessage.RemoteErrorException;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errormessage.RemoteErrorException;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;

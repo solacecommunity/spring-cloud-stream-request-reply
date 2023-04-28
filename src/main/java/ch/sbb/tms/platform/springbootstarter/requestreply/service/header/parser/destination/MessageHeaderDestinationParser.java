@@ -8,7 +8,9 @@ import org.springframework.messaging.MessageHeaders;
 public interface MessageHeaderDestinationParser extends MessageDestinationParser {
     @Override
     default String getDestination(Message<?> message) {
-        return message == null ? null : getDestination(message.getHeaders());
+        return message == null ?
+                null :
+                getDestination(message.getHeaders());
     }
 
     @Nullable

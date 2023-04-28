@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
-import java.util.UUID;
 
-import org.junit.jupiter.api.Disabled;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errormessage.MessageErrorMessageParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalReplies.MessageTotalRepliesParser;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.integration.IntegrationMessageHeaderAccessor;
@@ -22,7 +22,7 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
 
-class HeaderParserIT extends AbstractRequestReplyIT {
+class HeaderParserTests extends AbstractRequestReplyIT {
     @Autowired
     RequestReplyMessageHeaderSupportService headerSupport;
 
@@ -34,6 +34,12 @@ class HeaderParserIT extends AbstractRequestReplyIT {
 
     @Autowired
     private List<MessageReplyToParser> messageReplyToParsers;
+
+    @Autowired
+    private List<MessageTotalRepliesParser> messageTotalRepliesParsers;
+
+    @Autowired
+    private List<MessageErrorMessageParser> messageErrorMessageParsers;
 
     @Test
     void correlationIdParsersShouldNotThrowExceptionWhenGivenNull() {
@@ -50,9 +56,23 @@ class HeaderParserIT extends AbstractRequestReplyIT {
     }
 
     @Test
-    void replytoParsersShouldNotThrowExceptionWhenGivenNull() {
+    void replyToParsersShouldNotThrowExceptionWhenGivenNull() {
         for (MessageReplyToParser parser : messageReplyToParsers) {
-            assertNull(parser.getReplyTo(null), String.format("%s can not handle null values", parser));
+            assertNull((parser).getReplyTo(null), String.format("%s can not handle null values", parser));
+        }
+    }
+
+    @Test
+    void totalRepliesParsersShouldNotThrowExceptionWhenGivenNull() {
+        for (MessageTotalRepliesParser parser : messageTotalRepliesParsers) {
+            assertNull((parser).getTotalReplies( null), String.format("%s can not handle null values", parser));
+        }
+    }
+
+    @Test
+    void errorMessageParsersShouldNotThrowExceptionWhenGivenNull() {
+        for (MessageErrorMessageParser parser : messageErrorMessageParsers) {
+            assertNull((parser).getErrorMessage(null), String.format("%s can not handle null values", parser));
         }
     }
 

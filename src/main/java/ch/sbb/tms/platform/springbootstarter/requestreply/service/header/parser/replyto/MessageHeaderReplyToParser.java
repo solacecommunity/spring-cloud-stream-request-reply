@@ -8,7 +8,9 @@ import org.springframework.messaging.MessageHeaders;
 public interface MessageHeaderReplyToParser extends MessageReplyToParser {
     @Override
     default String getReplyTo(Message<?> message) {
-        return message == null ? null : getReplyTo(message.getHeaders());
+        return message == null ?
+                null :
+                getReplyTo(message.getHeaders());
     }
 
     @Nullable

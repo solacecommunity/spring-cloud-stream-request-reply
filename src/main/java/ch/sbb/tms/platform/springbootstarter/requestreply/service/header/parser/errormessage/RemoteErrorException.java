@@ -1,4 +1,4 @@
-package ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errorMessage;
+package ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errormessage;
 
 public class RemoteErrorException extends Exception {
 

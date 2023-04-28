@@ -9,7 +9,7 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyPro
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.SpringHeaderParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.correlationid.MessageCorrelationIdParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.destination.MessageDestinationParser;
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errorMessage.MessageErrorMessageParser;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errormessage.MessageErrorMessageParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalReplies.MessageTotalRepliesParser;
 import org.jetbrains.annotations.NotNull;
@@ -161,7 +161,7 @@ public class RequestReplyMessageHeaderSupportService {
                 }
 
                 return response;
-            } catch (Throwable e) {
+            } catch (Exception e) {
                 if (applicationExceptions != null) {
                     for (Class<E> applicationException : applicationExceptions) {
                         if (applicationException.isInstance(e)) {

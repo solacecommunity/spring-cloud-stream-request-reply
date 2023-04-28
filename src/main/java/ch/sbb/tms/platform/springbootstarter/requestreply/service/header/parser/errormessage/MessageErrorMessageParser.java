@@ -1,4 +1,4 @@
-package ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errorMessage;
+package ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errormessage;
 
 import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;

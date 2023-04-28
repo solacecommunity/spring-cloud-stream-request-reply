@@ -3,7 +3,7 @@ package ch.sbb.tms.platform.springbootstarter.requestreply.service;
 import java.util.concurrent.Phaser;
 import java.util.function.Consumer;
 
-import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errorMessage.RemoteErrorException;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errormessage.RemoteErrorException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

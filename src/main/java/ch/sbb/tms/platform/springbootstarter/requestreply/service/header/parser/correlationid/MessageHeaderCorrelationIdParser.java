@@ -11,7 +11,9 @@ import org.springframework.messaging.MessageHeaders;
 public interface MessageHeaderCorrelationIdParser extends MessageCorrelationIdParser {
     @Override
     default String getCorrelationId(Message<?> message) {
-        return message == null ? null : getCorrelationId(message.getHeaders());
+        return message == null ?
+                null :
+                getCorrelationId(message.getHeaders());
     }
 
     @Nullable
