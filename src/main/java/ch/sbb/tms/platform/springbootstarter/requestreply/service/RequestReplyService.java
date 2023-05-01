@@ -108,7 +108,7 @@ public interface RequestReplyService {
             @NotEmpty String bindingName,
             Class<A> expectedClass,
             @NotNull @Valid Duration timeoutPeriod
-    ) throws TimeoutException;
+    );
 
 
     /**
