@@ -220,6 +220,56 @@ public class PingPongConfig {
 ```
 [Full example](https://code.sbb.ch/projects/TP_TMS_PLATTFORM/repos/springcloudstream-examples/browse/request_reply_response/src/main/java/ch/sbb/tms/springcloudstream/examples/requestreplyresponse/config/PingMultiPongConfig.java)
 
+##### error handling
+You might want to forward errors to requester.
+To forward errors you only need to define 1 to N exception classes that should be forwarded to the requestor.
+
+```java
+public class PingPongConfig {
+  @Bean
+  public Function<Message<SensorRequest>, Message<SensorReading>> responseToRequest(
+          RequestReplyMessageHeaderSupportService headerSupport
+  ) {
+    return headerSupport.wrap((request) -> {
+      SensorReading response = new SensorReading();
+      ...
+
+      return response;
+    }, MyBusinessException.class, SomeOtherException.class);
+  }
+}
+```
+
+Input class validation and json parsing can not be returned to the requester out of the box.
+There for you need to do the validation on your own like:
+
+```java
+public class PingPongConfig {
+  @Qualifier("mvcValidator")
+  private final Validator validator;
+
+  private final ObjectMapper objectMapper;
+    
+  @Bean
+  public Function<Message<String>, Message<SensorReading>> responseToRequest(
+          RequestReplyMessageHeaderSupportService headerSupport
+  ) {
+    return headerSupport.wrap((rawRequest) -> {
+      SensorReading request = objectMapper.readValue(rawRequest.getBody(), SensorReading.class);
+      final DataBinder db = new DataBinder(request);
+      db.setValidator(validator);
+      db.validate();
+      
+        
+      SensorReading response = new SensorReading();
+      ...
+
+      return response;
+    }, MyBusinessException.class, SomeOtherException.class);
+  }
+}
+```
+
 ##### Variable replacement
 
 According to this documentation:
