@@ -1,6 +1,7 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.service;
 
-import java.util.concurrent.Phaser;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errormessage.RemoteErrorException;
@@ -13,7 +14,8 @@ import org.springframework.util.StringUtils;
 public class ResponseHandler {
     private static final Logger LOG = LoggerFactory.getLogger(ResponseHandler.class);
 
-    private final Phaser countDownLatch;
+    private final CountDownLatch countDownLatch;
+    private final AtomicLong expectedReplies = new AtomicLong(1);
     private final boolean supportMultipleResponses;
 
     private final Consumer<Message<?>> responseMessageConsumer;
@@ -22,7 +24,7 @@ public class ResponseHandler {
     private String errorMessage;
 
     public ResponseHandler(Consumer<Message<?>> responseMessageConsumer, boolean supportMultipleResponses) {
-        this.countDownLatch = new Phaser(2); // 1 for self|await and 1 for first message
+        this.countDownLatch = new CountDownLatch(1);
         this.responseMessageConsumer = responseMessageConsumer;
         this.supportMultipleResponses = supportMultipleResponses;
     }
@@ -33,32 +35,34 @@ public class ResponseHandler {
         isFirstMessage = false;
 
         responseMessageConsumer.accept(message);
-        countDownLatch.arriveAndDeregister();
+        if (expectedReplies.decrementAndGet() == 0) {
+            countDownLatch.countDown();
+        }
     }
 
-    public void await() throws RemoteErrorException {
-        countDownLatch.arriveAndAwaitAdvance();
+    public void await() throws RemoteErrorException, InterruptedException {
+        countDownLatch.await();
         if (StringUtils.hasText(errorMessage)) {
             throw new RemoteErrorException(errorMessage);
         }
     }
 
-    public void setTotalReplies(Integer totalReplies) {
+    public void setTotalReplies(Long totalReplies) {
         if (supportMultipleResponses && isFirstMessage && totalReplies > 1) {
             // Set total messages to expect when multi message on first message.
-            countDownLatch.bulkRegister(totalReplies - 1); // the first message is already registered.
+            expectedReplies.addAndGet(totalReplies - 1);
         }
     }
 
     public void emptyResponse() {
         isFirstMessage = false;
 
-        countDownLatch.arriveAndDeregister();
+        countDownLatch.countDown();
     }
 
     public void errorResponse(String errorMessage) {
         isFirstMessage = false;
         this.errorMessage = errorMessage;
-        countDownLatch.arriveAndDeregister();
+        countDownLatch.countDown();
     }
 }

@@ -77,7 +77,7 @@ public class RequestReplyMessageHeaderSupportService {
     }
 
     public @Nullable
-    Integer getTotalReplies(Message<?> message) {
+    Long getTotalReplies(Message<?> message) {
         return message == null ? null
                 : totalRepliesParsers
                 .stream()

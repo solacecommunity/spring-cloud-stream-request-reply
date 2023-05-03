@@ -71,7 +71,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 .build();
 
         assertEquals(
-                167,
+                167l,
                 supportService.getTotalReplies(m)
         );
     }

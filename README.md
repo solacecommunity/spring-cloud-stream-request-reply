@@ -255,7 +255,7 @@ public class PingPongConfig {
           RequestReplyMessageHeaderSupportService headerSupport
   ) {
     return headerSupport.wrap((rawRequest) -> {
-      SensorReading request = objectMapper.readValue(rawRequest.getBody(), SensorReading.class);
+      SensorReading request = objectMapper.readValue(rawRequest.getPayload(), SensorReading.class);
       final DataBinder db = new DataBinder(request);
       db.setValidator(validator);
       db.validate();

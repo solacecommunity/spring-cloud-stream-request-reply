@@ -363,7 +363,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             return;
         }
 
-        Integer totalReplies = messageHeaderSupportService.getTotalReplies(message);
+        Long totalReplies = messageHeaderSupportService.getTotalReplies(message);
         String errorMessage = messageHeaderSupportService.getErrorMessage(message);
 
         ResponseHandler handler = PENDING_RESPONSES.get(correlationId);

@@ -6,5 +6,5 @@ import org.springframework.messaging.Message;
 @FunctionalInterface
 public interface MessageTotalRepliesParser {
     @Nullable
-    Integer getTotalReplies(Message<?> message);
+    Long getTotalReplies(Message<?> message);
 }

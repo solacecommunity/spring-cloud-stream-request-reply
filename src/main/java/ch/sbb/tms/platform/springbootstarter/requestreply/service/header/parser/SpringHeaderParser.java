@@ -22,19 +22,19 @@ public class SpringHeaderParser implements MessageHeaderReplyToParser, MessageHe
     }
 
     @Override
-    public Integer getTotalReplies(MessageHeaders headers) {
+    public Long getTotalReplies(MessageHeaders headers) {
         Object replies = headers.get(MULTI_TOTAL_REPLIES);
         if (replies == null) {
             return null;
         }
         if (replies instanceof Integer) {
-            return (Integer) replies;
+            return ((Integer) replies).longValue();
         }
         if (replies instanceof Long) {
-            return Math.toIntExact((Long) replies);
+            return (Long) replies;
         }
         if (replies instanceof String) {
-            return Integer.parseInt((String) replies);
+            return Long.parseLong((String) replies);
         }
         throw new IllegalArgumentException("Invalid datatype for " + MULTI_TOTAL_REPLIES + ": " + replies.getClass()
                 .getName() + " == " + replies);

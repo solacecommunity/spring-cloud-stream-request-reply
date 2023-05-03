@@ -7,12 +7,12 @@ import org.springframework.messaging.MessageHeaders;
 @FunctionalInterface
 public interface MessageHeaderTotalRepliesParser extends MessageTotalRepliesParser {
     @Override
-    default Integer getTotalReplies(Message<?> message) {
+    default Long getTotalReplies(Message<?> message) {
         return message == null ?
                 null :
                 getTotalReplies(message.getHeaders());
     }
 
     @Nullable
-    Integer getTotalReplies(MessageHeaders headers);
+    Long getTotalReplies(MessageHeaders headers);
 }
