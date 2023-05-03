@@ -1,6 +1,9 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -21,7 +24,10 @@ import javax.validation.constraints.NotNull;
 import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
 import ch.sbb.tms.platform.springbootstarter.requestreply.exception.RequestReplyException;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.RequestReplyMessageHeaderSupportService;
+import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.SpringHeaderParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.errormessage.RemoteErrorException;
+import com.solacesystems.jcsmp.SDTException;
+import com.solacesystems.jcsmp.SDTStream;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +39,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.config.BindingServiceProperties;
 import org.springframework.cloud.stream.function.StreamBridge;
+import org.springframework.integration.IntegrationMessageHeaderAccessor;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
@@ -390,9 +397,57 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             if (StringUtils.hasText(errorMessage)) {
                 handler.errorResponse(errorMessage);
             }
+            else if (isMultiResponse(message)) {
+                for (Message<?> msg : parseMultiResponse((Message<SDTStream>) message)) {
+                    handler.receive(msg);
+                }
+            }
             else {
                 handler.receive(message);
             }
+        }
+    }
+
+    private static boolean isMultiResponse(Message<?> message) {
+        return message.getPayload() instanceof SDTStream &&
+                Boolean.TRUE.equals(message.getHeaders().get(SpringHeaderParser.GROUPED_MESSAGES));
+    }
+
+    private static List<Message<?>> parseMultiResponse(Message<SDTStream> message) {
+        try {
+            List<Message<?>> msgs = new ArrayList<>();
+            while (message.getPayload().hasRemaining()) {
+                switch (message.getPayload().readString()) {
+                case "BytesMessage":
+                    msgs.add(
+                            MessageBuilder
+                                    .withPayload(message.getPayload().readBytes())
+                                    .copyHeaders(new IntegrationMessageHeaderAccessor(message).toMap())
+                                    .build()
+                    );
+                    break;
+                case "TextMessage":
+                case "XMLContentMessage":
+                    msgs.add(
+                            MessageBuilder
+                                    .withPayload(new String(message.getPayload().readBytes(), StandardCharsets.UTF_8))
+                                    .copyHeaders(new IntegrationMessageHeaderAccessor(message).toMap())
+                                    .build()
+                    );
+                    break;
+                case "StreamMessage":
+                case "MapMessage":
+                default:
+                    throw new IllegalArgumentException(
+                            "Message type: StreamMessage and MapMessage are not supported for " +
+                                    SpringHeaderParser.GROUPED_MESSAGES
+                    );
+                }
+            }
+            return msgs;
+        }
+        catch (SDTException e) {
+            throw new IllegalArgumentException(e);
         }
     }
 }
