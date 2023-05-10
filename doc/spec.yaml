@@ -18,10 +18,10 @@ channels:
     address: null
     description: The response to your request
     message:
-      singleResponse:
-        $ref: '#/components/messages/singleResponse'
-      multiResponse:
-        $ref: '#/components/messages/multiResponse'
+      normalResponse:
+        $ref: '#/components/messages/normalResponse'
+      groupedResponse:
+        $ref: '#/components/messages/groupedResponse'
 
 operations:
   requestReply:
@@ -95,6 +95,18 @@ components:
             externalDocs:
               url: https://confluence.sbb.ch/x/Ohbleg
               description: documentation for request reply handling at tms
+          groupedMessages:
+            type: boolean
+            description: | 
+              Indicates that at a multi response channel a grouped messages is acceptable.
+              This flag should be `true`if:
+              - You expect multiple response > 200
+              - You expect small to very small response messages < 100kb
+              - You dont process the header of the original update messages. Because on grouped messages all header get lost.
+              
+              Benefit of grouped messages:
+              - The overhead will be minimized 
+              - You can receive much faster
           correlationId:
             type: string
             description: Correlation ID set by application. To identify response to request
@@ -102,8 +114,8 @@ components:
         location: $message.header#/correlationId
 
 
-    singleResponse:
-      name: replySingle
+    normalResponse:
+      name: reply
       title: Reply to a request
       payload:
         type: object
@@ -119,15 +131,15 @@ components:
             type: number
             minimum: 0
             description: The index of the reply message
-          groupedMessages:
-            type: boolean
-            description: needs to be `false` or unset to indicate a "singleResponse" message
       traits:
         - $ref: "#/components/messageTraits/response"
 
-    multiResponse:
-      name: replyMulty
-      title: Reply to a request
+    groupedResponse:
+      name: replyGrouped
+      title: Grouped reply to a request
+      description: |
+        Payload contains multiple small responses in a list.
+        Should be used to reduce the overhead in case a response consists of many (>200) small messages (<100kb).
       payload:
         type: array
         items:
@@ -164,7 +176,8 @@ components:
               - 4-25
           groupedMessages:
             type: boolean
-            description: needs to be `true` to indicate a "multiResponse" message
+            enum: true
+            description: needs to be `true` to indicate a grouped "groupedResponse" message
 
       traits:
         - $ref: "#/components/messageTraits/response"
