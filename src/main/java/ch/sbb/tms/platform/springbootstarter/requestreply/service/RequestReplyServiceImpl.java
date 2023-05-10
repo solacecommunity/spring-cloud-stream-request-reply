@@ -55,6 +55,9 @@ import static ch.sbb.tms.platform.springbootstarter.requestreply.util.CheckedExc
 @Service
 public class RequestReplyServiceImpl implements RequestReplyService {
     static final String MISSING_DESTINATION = "not-set";
+    static final long EMPTY_RESPONSE = 0;
+    static final long UNKNOWN_SIZE = -1;
+
     private static final Logger LOG = LoggerFactory.getLogger(RequestReplyServiceImpl.class);
     private static final ExecutorService REQUEST_REPLY_EXECUTOR = Executors.newCachedThreadPool();
     private static final Map<String, ResponseHandler> PENDING_RESPONSES = new ConcurrentHashMap<>();
@@ -375,13 +378,18 @@ public class RequestReplyServiceImpl implements RequestReplyService {
 
         ResponseHandler handler = PENDING_RESPONSES.get(correlationId);
         if (handler == null) {
-            LOG.error("Received unexpected message or maybe too late response: {}", message);
+            LOG.info("Received unexpected message or maybe too late response: {}", message);
         }
         else {
             if (totalReplies != null) {
-                handler.setTotalReplies(totalReplies);
+                if (totalReplies == UNKNOWN_SIZE) {
+                    handler.setUnknownReplies();
+                } else {
+                    handler.setTotalReplies(totalReplies);
+                }
 
-                if (totalReplies == 0) {
+
+                if (totalReplies == EMPTY_RESPONSE) {
                     if (StringUtils.hasText(errorMessage)) {
                         // null will be filtered. An empty flux will be returned.
                         handler.errorResponse(errorMessage);

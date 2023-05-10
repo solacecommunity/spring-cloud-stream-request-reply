@@ -16,6 +16,7 @@ public class ResponseHandler {
 
     private final CountDownLatch countDownLatch;
     private final AtomicLong expectedReplies = new AtomicLong(1);
+    private final AtomicLong receivedReplies = new AtomicLong(0);
     private final boolean supportMultipleResponses;
 
     private final Consumer<Message<?>> responseMessageConsumer;
@@ -32,10 +33,11 @@ public class ResponseHandler {
     public void receive(Message<?> message) {
         LOG.debug("received response {}", message);
 
-        isFirstMessage = false;
-
-        responseMessageConsumer.accept(message);
-        if (expectedReplies.decrementAndGet() == 0) {
+        long remainingReplies = expectedReplies.get() - receivedReplies.incrementAndGet();
+        if (remainingReplies >= 0) { // In case of unknown replies, the last message has no valid content.
+            responseMessageConsumer.accept(message);
+        }
+        if (remainingReplies <= 0) { // Normally -1
             countDownLatch.countDown();
         }
     }
@@ -50,7 +52,14 @@ public class ResponseHandler {
     public void setTotalReplies(Long totalReplies) {
         if (supportMultipleResponses && isFirstMessage && totalReplies > 1) {
             // Set total messages to expect when multi message on first message.
-            expectedReplies.addAndGet(totalReplies - 1);
+            expectedReplies.set(totalReplies);
+            isFirstMessage = false;
+        }
+    }
+
+    public void setUnknownReplies() {
+        if (supportMultipleResponses) {
+            expectedReplies.set(Long.MAX_VALUE);
         }
     }
 

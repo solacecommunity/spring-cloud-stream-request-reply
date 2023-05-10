@@ -1,12 +1,16 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.service.header;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT;
+import ch.sbb.tms.platform.springbootstarter.requestreply.model.SensorReading;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.SpringHeaderParser;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.binder.BinderHeaders;
@@ -15,6 +19,7 @@ import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 
+import static ch.sbb.tms.platform.springbootstarter.requestreply.model.SensorReading.BaseUnit.CELSIUS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -143,11 +148,11 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
         );
         assertEquals(
                 answers.get(0).getHeaders().get("totalReplies"),
-                2
+                2l
         );
         assertEquals(
                 answers.get(0).getHeaders().get("replyIndex"),
-                0
+                0l
         );
 
         assertEquals(
@@ -162,13 +167,103 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 answers.get(1).getHeaders().get("custom")
         );
         assertEquals(
-                2,
+                2l,
                 answers.get(1).getHeaders().get("totalReplies")
         );
         assertEquals(
-                1,
+                1l,
                 answers.get(1).getHeaders().get("replyIndex")
         );
+    }
+
+    @Test
+    void wrapFlux() {
+        Function<Flux<Message<String>>, Flux<Message<String>>> supplier = supportService.wrapFlux((payloadIn, outSink) -> {
+            outSink.next("first msg");
+            outSink.next("second msg");
+            outSink.complete();
+        });
+
+        Message<String> inMsg = MessageBuilder.withPayload("demo")
+                .setHeader("correlationId", "my-correlationId-my")
+                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                .setHeader("custom", "my-custom-my")
+                .build();
+
+        Flux<Message<String>> answers = supplier.apply(Flux.just(inMsg));
+
+        StepVerifier
+                .create(answers)
+                .consumeNextWith(aMsg -> {
+                    assertEquals(
+                            "first msg",
+                            aMsg.getPayload()
+                    );
+                    assertEquals(
+                            "my-correlationId-my",
+                            aMsg.getHeaders().get("correlationId")
+                    );
+                    assertEquals(
+                            "my-dest-my/p-arcs/the-event-after",
+                            aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+                    );
+                    assertEquals(
+                            -1l,
+                            aMsg.getHeaders().get("totalReplies")
+                    );
+                    assertEquals(
+                            0l,
+                            aMsg.getHeaders().get("replyIndex")
+                    );
+                })
+                .consumeNextWith(aMsg -> {
+                    assertEquals(
+                            "second msg",
+                            aMsg.getPayload()
+                    );
+                    assertEquals(
+                            "my-correlationId-my",
+                            aMsg.getHeaders().get("correlationId")
+                    );
+                    assertEquals(
+                            "my-dest-my/p-arcs/the-event-after",
+                            aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+                    );
+                    assertEquals(
+                            -1l,
+                            aMsg.getHeaders().get("totalReplies")
+                    );
+                    assertEquals(
+                            1l,
+                            aMsg.getHeaders().get("replyIndex")
+                    );
+                })
+                .consumeNextWith(aMsg -> {
+                    assertEquals(
+                            "",
+                            aMsg.getPayload()
+                    );
+                    assertEquals(
+                            "my-correlationId-my",
+                            aMsg.getHeaders().get("correlationId")
+                    );
+                    assertEquals(
+                            "my-dest-my/p-arcs/the-event-after",
+                            aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+                    );
+                    assertEquals(
+                            2l,
+                            aMsg.getHeaders().get("totalReplies"),
+                            "Total replies should be set at last msg"
+                    );
+                    assertEquals(
+                            2l,
+                            aMsg.getHeaders().get("replyIndex"),
+                            "replyIndex should be equal to total replies at last msg"
+                    );
+                })
+                .expectComplete()
+                .verify(Duration.ofSeconds(10));
     }
 
     @Test
@@ -197,13 +292,55 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 answers.get(0).getHeaders().get(BinderHeaders.TARGET_DESTINATION)
         );
         assertEquals(
-                0,
+                0l,
                 answers.get(0).getHeaders().get("totalReplies")
         );
         assertEquals(
-                0,
+                0l,
                 answers.get(0).getHeaders().get("replyIndex")
         );
+    }
+
+    @Test
+    void wrapFlux_emptyList_shouldCreateMessageWithTotalRepliesNull() {
+        Function<Flux<Message<String>>, Flux<Message<String>>> supplier = supportService.wrapFlux((payloadIn, outSink) -> {
+            outSink.complete();
+        });
+
+        Message<String> inMsg = MessageBuilder.withPayload("demo")
+                .setHeader("correlationId", "my-correlationId-my")
+                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                .setHeader("custom", "my-custom-my")
+                .build();
+
+        Flux<Message<String>> answers = supplier.apply(Flux.just(inMsg));
+
+        StepVerifier
+                .create(answers)
+                .consumeNextWith(aMsg -> {
+                    assertEquals(
+                            "",
+                            aMsg.getPayload()
+                    );
+                    assertEquals(
+                            "my-correlationId-my",
+                            aMsg.getHeaders().get("correlationId")
+                    );
+                    assertEquals(
+                            "my-dest-my/p-arcs/the-event-after",
+                            aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+                    );
+                    assertEquals(
+                            0l,
+                            aMsg.getHeaders().get("totalReplies")
+                    );
+                    assertEquals(
+                            0l,
+                            aMsg.getHeaders().get("replyIndex")
+                    );
+                })
+                .expectComplete()
+                .verify(Duration.ofSeconds(10));
     }
 
     @Test
@@ -291,11 +428,11 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 answers.get(0).getHeaders().get(BinderHeaders.TARGET_DESTINATION)
         );
         assertEquals(
-                0,
+                0l,
                 answers.get(0).getHeaders().get("totalReplies")
         );
         assertEquals(
-                0,
+                0l,
                 answers.get(0).getHeaders().get("replyIndex")
         );
         assertEquals(
@@ -325,6 +462,76 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 "The error message",
                 e.getMessage()
         );
+    }
+
+    @Test
+    void wrapFlux_exception() {
+        Function<Flux<Message<String>>, Flux<Message<String>>> supplier = supportService.wrapFlux((payloadIn, outSink) -> {
+            outSink.next("first msg");
+            outSink.error(new RuntimeException("The error message"));
+            outSink.complete();
+        });
+
+        Message<String> inMsg = MessageBuilder.withPayload("demo")
+                .setHeader("correlationId", "my-correlationId-my")
+                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                .setHeader("custom", "my-custom-my")
+                .build();
+
+        Flux<Message<String>> answers = supplier.apply(Flux.just(inMsg));
+
+        StepVerifier
+                .create(answers)
+                .consumeNextWith(aMsg -> {
+                    assertEquals(
+                            "first msg",
+                            aMsg.getPayload()
+                    );
+                    assertEquals(
+                            "my-correlationId-my",
+                            aMsg.getHeaders().get("correlationId")
+                    );
+                    assertEquals(
+                            "my-dest-my/p-arcs/the-event-after",
+                            aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+                    );
+                    assertEquals(
+                            -1l,
+                            aMsg.getHeaders().get("totalReplies")
+                    );
+                    assertEquals(
+                            0l,
+                            aMsg.getHeaders().get("replyIndex")
+                    );
+                })
+                .consumeNextWith(aMsg -> {
+                    assertEquals(
+                            "",
+                            aMsg.getPayload()
+                    );
+                    assertEquals(
+                            "my-correlationId-my",
+                            aMsg.getHeaders().get("correlationId")
+                    );
+                    assertEquals(
+                            "my-dest-my/p-arcs/the-event-after",
+                            aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+                    );
+                    assertEquals(
+                            0l,
+                            aMsg.getHeaders().get("totalReplies")
+                    );
+                    assertEquals(
+                            0l,
+                            aMsg.getHeaders().get("replyIndex")
+                    );
+                    assertEquals(
+                            "The error message",
+                            aMsg.getHeaders().get("errorMessage")
+                    );
+                })
+                .expectComplete()
+                .verify(Duration.ofSeconds(10));
     }
 
 

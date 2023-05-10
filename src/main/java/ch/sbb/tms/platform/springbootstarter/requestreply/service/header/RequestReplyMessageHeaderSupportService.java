@@ -3,6 +3,9 @@ package ch.sbb.tms.platform.springbootstarter.requestreply.service.header;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.config.RequestReplyProperties;
@@ -13,6 +16,9 @@ import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.replyto.MessageReplyToParser;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.totalreplies.MessageTotalRepliesParser;
 import org.jetbrains.annotations.NotNull;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
+import reactor.core.publisher.Mono;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.binder.BinderHeaders;
@@ -86,6 +92,7 @@ public class RequestReplyMessageHeaderSupportService {
                 .findFirst()
                 .orElse(null);
     }
+
     public @Nullable
     String getErrorMessage(Message<?> message) {
         return message == null ? null
@@ -114,7 +121,8 @@ public class RequestReplyMessageHeaderSupportService {
                 MessageBuilder<A> mb = MessageBuilder.withPayload(payloadFunction.apply(request.getPayload()));
                 transferAndAdoptHeaders(request, mb);
                 return mb.build();
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 if (applicationExceptions != null) {
                     for (Class<E> applicationException : applicationExceptions) {
                         if (applicationException.isInstance(e)) {
@@ -138,7 +146,7 @@ public class RequestReplyMessageHeaderSupportService {
      * @return message with the payload function applied to the incoming message and the message headers prepared for answering
      */
     @SafeVarargs
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked" )
     public final <Q, A, T extends Function<Q, List<A>>, E extends Throwable> Function<Message<Q>, List<Message<A>>> wrapList(T payloadFunction, Class<E>... applicationExceptions) {
         return request -> {
             try {
@@ -146,11 +154,8 @@ public class RequestReplyMessageHeaderSupportService {
 
                 List<Message<A>> response = new ArrayList<>();
 
-
                 if (CollectionUtils.isEmpty(rawResponses)) {
-                    MessageBuilder<String> mb = MessageBuilder.withPayload("");
-                    transferAndAdoptHeaders(request, mb, 0, 0);
-                    response.add((Message<A>) mb.build());
+                    response.add(emptyMsg(request, 0, 0));
                 }
                 else {
                     for (int i = 0; i < rawResponses.size(); i++) {
@@ -161,7 +166,8 @@ public class RequestReplyMessageHeaderSupportService {
                 }
 
                 return response;
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 if (applicationExceptions != null) {
                     for (Class<E> applicationException : applicationExceptions) {
                         if (applicationException.isInstance(e)) {
@@ -174,16 +180,53 @@ public class RequestReplyMessageHeaderSupportService {
         };
     }
 
+    /**
+     * wrap the given function, copying message headers from incoming to outgoing message,
+     * properly setting correlation ID and target
+     *
+     * @param <Q> incoming message payload type
+     * @param <A> outgoing message payload type
+     * @param payloadFunction mapping function from incoming to outgoing payload
+     * @return message with the payload function applied to the incoming message and the message headers prepared for answering
+     */
+    @SuppressWarnings("unchecked" )
+    public final <Q, A> Function<Flux<Message<Q>>, Flux<Message<A>>> wrapFlux(BiConsumer<Q, FluxSink<A>> payloadFunction) {
+        return inFlux -> inFlux
+                .flatMap(request -> {
+                    try {
+                        AtomicLong index = new AtomicLong(0);
+                        return Flux
+                                .create(fluxSink -> payloadFunction.accept(request.getPayload(), (FluxSink<A>) fluxSink))
+                                .map(payload -> {
+                                    MessageBuilder<A> mb = (MessageBuilder<A>) MessageBuilder.withPayload(payload);
+                                    transferAndAdoptHeaders(request, mb, -1, index.getAndIncrement());
+                                    return mb.build();
+                                })
+                                .concatWith(Mono.fromSupplier(() -> emptyMsg(request, index.get(), index.get()))) // Append the finish message
+                                .onErrorResume(err -> Mono.just(errorResponse(request, err)));
+                    }
+                    catch (Exception e) {
+                        return Flux.error(e);
+                    }
+                });
+    }
+
+    private <Q, A> Message<A> emptyMsg(Message<Q> request, long totalReplies, long replyIndex) {
+        MessageBuilder<String> mb = MessageBuilder.withPayload("" );
+        transferAndAdoptHeaders(request, mb, totalReplies, replyIndex);
+        return (Message<A>) mb.build();
+    }
+
     @NotNull
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked" )
     private <Q, A> Message<A> errorResponse(Message<Q> request, Throwable e) {
-        MessageBuilder<String> mb = MessageBuilder.withPayload("");
+        MessageBuilder<String> mb = MessageBuilder.withPayload("" );
         transferAndAdoptHeaders(request, mb, 0, 0);
         mb.setHeader(SpringHeaderParser.ERROR_MESSAGE, e.getMessage());
         return (Message<A>) mb.build();
     }
 
-    private <Q, A> void transferAndAdoptHeaders(Message<Q> request, MessageBuilder<A> mb, int totalReplies, int replyIndex) {
+    private <Q, A> void transferAndAdoptHeaders(Message<Q> request, MessageBuilder<A> mb, long totalReplies, long replyIndex) {
         transferAndAdoptHeaders(request, mb);
 
         mb.setHeader(SpringHeaderParser.MULTI_TOTAL_REPLIES, totalReplies);

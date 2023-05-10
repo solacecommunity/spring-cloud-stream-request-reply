@@ -169,7 +169,8 @@ And replace all `{someThing}` to the wildcard (second parameter) `*`
 In general, if you want to answer to a message, you do not need this library. Instead, you can simply send the response
 to the topic defined in the reply to header and reply all requested header.
 
-However, the methods `RequestReplyMessageHeaderSupportService.wrap` and `RequestReplyMessageHeaderSupportService.wrapList` 
+However, the methods `RequestReplyMessageHeaderSupportService.wrap`, `RequestReplyMessageHeaderSupportService.wrapList`
+and `RequestReplyMessageHeaderSupportService.wrapFlux`
 from this library can support in creating the response with properly setting the message headers, 
 as well as with substituting variables in dynamic topics.
 
@@ -202,11 +203,11 @@ public class PingPongConfig {
 ```
 [Full example](https://code.sbb.ch/projects/TP_TMS_PLATTFORM/repos/springcloudstream-examples/browse/request_reply_response/src/main/java/ch/sbb/tms/springcloudstream/examples/requestreplyresponse/config/PingPongConfig.java)
 
-##### multiple responses
+##### multiple responses, functional
 ```java
 public class PingPongConfig {
   @Bean
-  public Function<Message<SensorRequest>, List<Message<SensorReading>>> responseMultiToRequest(
+  public Function<Message<SensorRequest>, List<Message<SensorReading>>> responseMultiToRequestKnownSizeSolace(
           RequestReplyMessageHeaderSupportService headerSupport
   ) {
     return headerSupport.wrapList((request) -> {
@@ -214,6 +215,28 @@ public class PingPongConfig {
       ...
   
       return responses;
+    });
+  }
+}
+```
+[Full example](https://code.sbb.ch/projects/TP_TMS_PLATTFORM/repos/springcloudstream-examples/browse/request_reply_response/src/main/java/ch/sbb/tms/springcloudstream/examples/requestreplyresponse/config/PingMultiPongConfig.java)
+
+##### multiple responses, reactive
+```java
+public class PingPongConfig {
+  @Bean
+  public Function<Flux<Message<SensorRequest>>, Flux<Message<SensorReading>>> responseMultiToRequestRandomSizeSolace(
+          RequestReplyMessageHeaderSupportService headerSupport
+  ) {
+    return headerSupport.wrapFlux((request, responseSink) -> {
+      try {
+        while (...) {
+          responseSink.next(response);
+        }
+        responseSink.complete();
+      } catch (Exception e) {
+        responseSink.error(new IllegalArgumentException("Business error message", e));
+      }
     });
   }
 }

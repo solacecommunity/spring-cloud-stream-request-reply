@@ -1,0 +1,170 @@
+asyncapi: 3.0.0
+info:
+  title: Request reply example api
+  version: '1.0.0'
+  description: |
+    THIS IS NOT A STANDALONE API!!!
+    DONT COPY PASTE!!!
+    Please see this as a template that should be adopted and integrated into your api.
+    Because this service is part of your application.
+channels:
+  request:
+    address: tms/iad/lta/p/v1/prod/my/request
+    description: Get a compacted view of the past.
+    message:
+      request:
+        $ref: '#/components/messages/request'
+  response:
+    address: null
+    description: The response to your request
+    message:
+      singleResponse:
+        $ref: '#/components/messages/singleResponse'
+      multiResponse:
+        $ref: '#/components/messages/multiResponse'
+
+operations:
+  requestReply:
+    action: receive
+    channel:
+      $ref: '#/channels/request'
+    reply:
+      channel:
+        $ref: '#/channels/response'
+      address:
+        location: '$message.header#/replyChannel'
+    description: >
+      Request reply example operation
+
+components:
+  messageTraits:
+    response:
+      headers:
+        type: object
+        required:
+          - totalReplies
+          - correlationId
+        properties:
+          totalReplies:
+            type: number
+            minimum: -1
+            description: |
+              The total number of reply you have to expect.
+              
+              Edge cases:
+              -  "0" There are no responses and/or there is an error. The error case indicates end of stream.
+                     If `errorMessage` is not empty.  Your requests could not be processed.
+                     If `errorMessage` is empty or not set, your requests dint find anything to return aka empty array.
+              - "-1" The number of replies is unknown.
+                     In this edge case only the last message will have a totalReplies >= 1 but the body of the EndOfStream
+                     message will not be evaluated.
+          correlationId:
+            type: string
+            description: Correlation ID set by application. To identify response to request
+          errorMessage:
+            type: string
+            description: |
+              In case of that the request was invalid. This field is given with an error message and totalReplies is set to 0
+      correlationId:
+        location: $message.header#/correlationId
+  messages:
+    request:
+      name: request
+      title: Your question
+      headers:
+        type: object
+        additionalProperties: false
+        required:
+          - replyTo
+          - correlationId
+        properties:
+          replyTo:
+            type: string
+            pattern: ^tms/iad/lta/p-\w+/v1/prod/your/reply/([\w\-]{10,})$
+            maxLength: 134
+            description: |
+              the address where you receive the reply to.
+              Use the solace ReplyTo header:
+              https://docs.solace.com/API-Developer-Online-Ref-Documentation/java/com/solacesystems/jcsmp/XMLMessage.html#getReplyTo--
+              
+              TODO: you need to adopt the pattern to match your topic from configuration.
+              
+              But be aware of to:
+              - use a very unique system identifier. To avoid collisions and debugging purpose to identify you.
+              - but not exceed the 134 char max topic length
+            externalDocs:
+              url: https://confluence.sbb.ch/x/Ohbleg
+              description: documentation for request reply handling at tms
+          correlationId:
+            type: string
+            description: Correlation ID set by application. To identify response to request
+      correlationId:
+        location: $message.header#/correlationId
+
+
+    singleResponse:
+      name: replySingle
+      title: Reply to a request
+      payload:
+        type: object
+        description: |
+          TODO: Define here the payload Schema.
+          Transfer encoded as byte array.
+      headers:
+        type: object
+        required:
+          - replyIndex
+        properties:
+          replyIndex:
+            type: number
+            minimum: 0
+            description: The index of the reply message
+          groupedMessages:
+            type: boolean
+            description: needs to be `false` or unset to indicate a "singleResponse" message
+      traits:
+        - $ref: "#/components/messageTraits/response"
+
+    multiResponse:
+      name: replyMulty
+      title: Reply to a request
+      payload:
+        type: array
+        items:
+          oneOff:
+            - type: string
+              enum:
+                - TextMessage
+                - XMLContentMessage
+                - BytesMessage
+                - MapMessage
+                - StreamMessage
+              description: The message type
+            - type: object
+              description: |
+                TODO: Define here the payload Schema.
+                Transfer encoded as byte array.
+        description: |
+          A list of multiple message bodies. 
+          The content is a alternating list with: MessageType, body, MessageType, body, ...
+          Needs to be of type solace "StreamMessage"
+      headers:
+        type: object
+        required:
+          - replyIndex
+          - groupedMessages
+        properties:
+          replyIndex:
+            type: string
+            description: |
+              The index range of the reply message.
+            examples:
+              - 0
+              - 0-3
+              - 4-25
+          groupedMessages:
+            type: boolean
+            description: needs to be `true` to indicate a "multiResponse" message
+
+      traits:
+        - $ref: "#/components/messageTraits/response"
