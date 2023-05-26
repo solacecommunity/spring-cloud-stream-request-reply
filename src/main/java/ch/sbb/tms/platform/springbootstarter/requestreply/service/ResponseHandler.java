@@ -31,8 +31,6 @@ public class ResponseHandler {
     }
 
     public void receive(Message<?> message) {
-        LOG.debug("received response {}", message);
-
         long remainingReplies = expectedReplies.get() - receivedReplies.incrementAndGet();
         if (remainingReplies >= 0) { // In case of unknown replies, the last message has no valid content.
             responseMessageConsumer.accept(message);
@@ -40,6 +38,8 @@ public class ResponseHandler {
         if (remainingReplies <= 0) { // Normally -1
             countDownLatch.countDown();
         }
+
+        LOG.debug("received response(remaining={}) {}", remainingReplies, message);
     }
 
     public void await() throws RemoteErrorException, InterruptedException {

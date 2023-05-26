@@ -215,7 +215,7 @@ public class PingPongConfig {
       ...
   
       return responses;
-    });
+    }, "responseMultiToRequestKnownSizeSolace");
   }
 }
 ```
@@ -237,7 +237,7 @@ public class PingPongConfig {
       } catch (Exception e) {
         responseSink.error(new IllegalArgumentException("Business error message", e));
       }
-    });
+    }, "responseMultiToRequestRandomSizeSolace");
   }
 }
 ```
@@ -340,6 +340,80 @@ The request/reply functionality provided by this starter can be utilized by auto
   sends the given request to the `destination`configured for the `-out-0`of this binding, returns a future and maps it to the provided class when responses received. Use this if you expect multiple responses for a single questions. For example: if your response type would be an array it is best practice to send those as single messages to avoid to big messages.
 
 All methods can be used in any combination.
+
+##### Request with responses
+
+When you use the `requestReplyToTopicReactive` methode, you are enable to receive multiple responses to your question.  
+
+###### Example for blocking
+
+A blocking request reply where you receive a list of answers.
+
+```java
+    @GetMapping(value = "/temperature/last_hour/{location}")
+    public List<SensorReading> requestMultiReplySample(
+            @PathVariable("location") final String location
+    ) {
+        MyRequest request = new MyRequest();
+        request.setLocation(location);
+
+        return requestReplyService.requestReplyToTopicReactive(
+                        request,
+                        "last_hour/temperature/celsius/" + location,
+                        SensorReading.class,
+                        Duration.ofSeconds(30)
+                )
+                .collectList()
+                .block();
+    }
+```
+
+###### Example for non-blocking
+
+A blocking request reply where you receive a list of answers.
+
+```java
+    @GetMapping(value = "/temperature/last_hour/{location}")
+    public void requestMultiReplySample(
+            @PathVariable("location") final String location
+    ) {
+        MyRequest request = new MyRequest();
+        request.setLocation(location);
+
+        requestReplyService.requestReplyToTopicReactive(
+                        request,
+                        "last_hour/temperature/celsius/" + location,
+                        SensorReading.class,
+                        Duration.ofSeconds(30)
+                )
+                .subscribe(
+                        sensorReading -> log.info("Got an answr: " + sensorReading),
+                        throwable -> log.error("The request was finished with error", throwable),
+                        () -> log.info("The request was finished")
+                )
+        );
+    }
+```
+
+###### receive many answers
+
+If your request is a `org.springframework.messaging.Message`, you can decide if every response should be 
+transported as a single message or if a couple of messages should be grouped together.
+
+Message grouping can be enabled via:
+`requestMsg.setHeader(SpringHeaderParser.GROUPED_MESSAGES, true);`
+
+In case you request something else, will the request/reply lib add `GROUPED_MESSAGES=true` automatically.
+
+Until you require a separate header for each reply,
+it is recommended to use grouped messages instead of sending individual messages.  
+Grouped messages improve reply speed by reducing the message header overhead and conserving broker resources.
+
+Messages will group together until, one of following rules is true:
+- The grouped message exceed the 1MB limit
+- The group contains more than 10_000 single items
+- The first messages in the group is more than 0.5sec ago (or the replier configured a different value)
+
 
 #### `RequestReplyMessageHeaderSupportService`
 

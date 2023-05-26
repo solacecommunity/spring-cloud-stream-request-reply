@@ -282,7 +282,8 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             messageBuilder = MessageBuilder.fromMessage((Message<?>) request);
         }
         else {
-            messageBuilder = MessageBuilder.withPayload(request);
+            messageBuilder = MessageBuilder.withPayload(request)
+                    .setHeader(SpringHeaderParser.GROUPED_MESSAGES, true);
         }
 
         messageBuilder
@@ -365,6 +366,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
         T get() throws InterruptedException, TimeoutException, ExecutionException;
     }
 
+    @SuppressWarnings("unchecked")
     void onReplyReceived(final Message<?> message) {
         String correlationId = messageHeaderSupportService.getCorrelationId(message);
 
@@ -426,30 +428,22 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             List<Message<?>> msgs = new ArrayList<>();
             while (message.getPayload().hasRemaining()) {
                 switch (message.getPayload().readString()) {
-                case "BytesMessage":
-                    msgs.add(
-                            MessageBuilder
-                                    .withPayload(message.getPayload().readBytes())
-                                    .copyHeaders(new IntegrationMessageHeaderAccessor(message).toMap())
-                                    .build()
-                    );
-                    break;
-                case "TextMessage":
-                case "XMLContentMessage":
-                    msgs.add(
-                            MessageBuilder
-                                    .withPayload(new String(message.getPayload().readBytes(), StandardCharsets.UTF_8))
-                                    .copyHeaders(new IntegrationMessageHeaderAccessor(message).toMap())
-                                    .build()
-                    );
-                    break;
-                case "StreamMessage":
-                case "MapMessage":
-                default:
-                    throw new IllegalArgumentException(
-                            "Message type: StreamMessage and MapMessage are not supported for " +
-                                    SpringHeaderParser.GROUPED_MESSAGES
-                    );
+                case "BytesMessage" -> msgs.add(
+                        MessageBuilder
+                                .withPayload(message.getPayload().readBytes())
+                                .copyHeaders(new IntegrationMessageHeaderAccessor(message).toMap())
+                                .build()
+                );
+                case "TextMessage", "XMLContentMessage" -> msgs.add(
+                        MessageBuilder
+                                .withPayload(new String(message.getPayload().readBytes(), StandardCharsets.UTF_8))
+                                .copyHeaders(new IntegrationMessageHeaderAccessor(message).toMap())
+                                .build()
+                );
+                case "StreamMessage", "MapMessage" -> throw new IllegalArgumentException(
+                        "Message type: StreamMessage and MapMessage are not supported for " +
+                                SpringHeaderParser.GROUPED_MESSAGES
+                );
                 }
             }
             return msgs;

@@ -1,13 +1,15 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.service.header;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
 import ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT;
-import ch.sbb.tms.platform.springbootstarter.requestreply.model.SensorReading;
 import ch.sbb.tms.platform.springbootstarter.requestreply.service.header.parser.SpringHeaderParser;
+import com.solacesystems.jcsmp.SDTStream;
+import com.solacesystems.jcsmp.impl.sdt.StreamImpl;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
@@ -19,7 +21,6 @@ import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 
-import static ch.sbb.tms.platform.springbootstarter.requestreply.model.SensorReading.BaseUnit.CELSIUS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -76,7 +77,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 .build();
 
         assertEquals(
-                167l,
+                167L,
                 supportService.getTotalReplies(m)
         );
     }
@@ -119,8 +120,8 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
     }
 
     @Test
-    void wrapList() {
-        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m));
+    void wrapList_singleResponses() {
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m), "requestReplyRepliesDemo");
 
         Message<String> m = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
@@ -148,11 +149,11 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
         );
         assertEquals(
                 answers.get(0).getHeaders().get("totalReplies"),
-                2l
+                2L
         );
         assertEquals(
                 answers.get(0).getHeaders().get("replyIndex"),
-                0l
+                "0"
         );
 
         assertEquals(
@@ -167,22 +168,71 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 answers.get(1).getHeaders().get("custom")
         );
         assertEquals(
-                2l,
+                2L,
                 answers.get(1).getHeaders().get("totalReplies")
         );
         assertEquals(
-                1l,
+                "1",
                 answers.get(1).getHeaders().get("replyIndex")
         );
     }
 
     @Test
-    void wrapFlux() {
+    void wrapList_groupedResponses() {
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m), "requestReplyRepliesDemo");
+
+        Message<String> m = MessageBuilder.withPayload("demo")
+                .setHeader("correlationId", "my-correlationId-my")
+                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                .setHeader("groupedMessages", true)
+                .setHeader("custom", "my-custom-my")
+                .build();
+
+        List<Message<String>> answers = supplier.apply(m);
+
+        SDTStream expectedBody = new StreamImpl();
+        expectedBody.writeString("BytesMessage");
+        expectedBody.writeBytes("demo".getBytes(StandardCharsets.UTF_8));
+        expectedBody.writeString("BytesMessage");
+        expectedBody.writeBytes("demo".getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(
+                1,
+                answers.size()
+        );
+
+        assertEquals(
+                "my-correlationId-my",
+                answers.get(0).getHeaders().get("correlationId")
+        );
+        assertEquals(
+                "my-dest-my/p-arcs/the-event-after",
+                answers.get(0).getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+        );
+        assertNull(
+                answers.get(0).getHeaders().get("custom")
+        );
+        assertEquals(
+                2L,
+                answers.get(0).getHeaders().get("totalReplies")
+        );
+        assertEquals(
+                "0-1",
+                answers.get(0).getHeaders().get("replyIndex")
+        );
+        assertEquals(
+                expectedBody,
+                answers.get(0).getPayload()
+        );
+    }
+
+    @Test
+    void wrapFlux_singleResponses() {
         Function<Flux<Message<String>>, Flux<Message<String>>> supplier = supportService.wrapFlux((payloadIn, outSink) -> {
             outSink.next("first msg");
             outSink.next("second msg");
             outSink.complete();
-        });
+        },"requestReplyRepliesDemo");
 
         Message<String> inMsg = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
@@ -208,11 +258,11 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                             aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
                     );
                     assertEquals(
-                            -1l,
+                            -1L,
                             aMsg.getHeaders().get("totalReplies")
                     );
                     assertEquals(
-                            0l,
+                            "0",
                             aMsg.getHeaders().get("replyIndex")
                     );
                 })
@@ -230,11 +280,11 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                             aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
                     );
                     assertEquals(
-                            -1l,
+                            -1L,
                             aMsg.getHeaders().get("totalReplies")
                     );
                     assertEquals(
-                            1l,
+                            "1",
                             aMsg.getHeaders().get("replyIndex")
                     );
                 })
@@ -252,12 +302,12 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                             aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
                     );
                     assertEquals(
-                            2l,
+                            2L,
                             aMsg.getHeaders().get("totalReplies"),
                             "Total replies should be set at last msg"
                     );
                     assertEquals(
-                            2l,
+                            "2",
                             aMsg.getHeaders().get("replyIndex"),
                             "replyIndex should be equal to total replies at last msg"
                     );
@@ -267,8 +317,84 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
     }
 
     @Test
+    void wrapFlux_groupedResponses() {
+        Function<Flux<Message<String>>, Flux<Message<String>>> supplier = supportService.wrapFlux((payloadIn, outSink) -> {
+            outSink.next("first msg");
+            outSink.next("second msg");
+            outSink.complete();
+        },"requestReplyRepliesDemo");
+
+        Message<String> inMsg = MessageBuilder.withPayload("demo")
+                .setHeader("correlationId", "my-correlationId-my")
+                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                .setHeader("custom", "my-custom-my")
+                .setHeader("groupedMessages", true)
+                .build();
+
+        Flux<Message<String>> answers = supplier.apply(Flux.just(inMsg));
+
+        SDTStream expectedBody = new StreamImpl();
+        expectedBody.writeString("BytesMessage");
+        expectedBody.writeBytes("first msg".getBytes(StandardCharsets.UTF_8));
+        expectedBody.writeString("BytesMessage");
+        expectedBody.writeBytes("second msg".getBytes(StandardCharsets.UTF_8));
+
+        StepVerifier
+                .create(answers)
+                .consumeNextWith(aMsg -> {
+                    assertEquals(
+                            expectedBody,
+                            aMsg.getPayload()
+                    );
+                    assertEquals(
+                            "my-correlationId-my",
+                            aMsg.getHeaders().get("correlationId")
+                    );
+                    assertEquals(
+                            "my-dest-my/p-arcs/the-event-after",
+                            aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+                    );
+                    assertEquals(
+                            -1L,
+                            aMsg.getHeaders().get("totalReplies")
+                    );
+                    assertEquals(
+                            "0-1",
+                            aMsg.getHeaders().get("replyIndex")
+                    );
+                })
+                .consumeNextWith(aMsg -> {
+                    assertEquals(
+                            "",
+                            aMsg.getPayload()
+                    );
+                    assertEquals(
+                            "my-correlationId-my",
+                            aMsg.getHeaders().get("correlationId")
+                    );
+                    assertEquals(
+                            "my-dest-my/p-arcs/the-event-after",
+                            aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
+                    );
+                    assertEquals(
+                            2L,
+                            aMsg.getHeaders().get("totalReplies"),
+                            "Total replies should be set at last msg"
+                    );
+                    assertEquals(
+                            "2",
+                            aMsg.getHeaders().get("replyIndex"),
+                            "replyIndex should be equal to total replies at last msg"
+                    );
+                })
+                .expectComplete()
+                .verify(Duration.ofSeconds(10));
+    }
+
+
+    @Test
     void wrapList_emptyList_shouldCreateMessageWithTotalRepliesNull() {
-        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> Collections.emptyList());
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> Collections.emptyList(), "requestReplyRepliesDemo");
 
         Message<String> m = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
@@ -292,20 +418,21 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 answers.get(0).getHeaders().get(BinderHeaders.TARGET_DESTINATION)
         );
         assertEquals(
-                0l,
+                0L,
                 answers.get(0).getHeaders().get("totalReplies")
         );
         assertEquals(
-                0l,
+                "0",
                 answers.get(0).getHeaders().get("replyIndex")
         );
     }
 
     @Test
     void wrapFlux_emptyList_shouldCreateMessageWithTotalRepliesNull() {
-        Function<Flux<Message<String>>, Flux<Message<String>>> supplier = supportService.wrapFlux((payloadIn, outSink) -> {
-            outSink.complete();
-        });
+        Function<Flux<Message<String>>, Flux<Message<String>>> supplier = supportService.wrapFlux(
+                (payloadIn, outSink) -> outSink.complete(),
+                "requestReplyRepliesDemo"
+        );
 
         Message<String> inMsg = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
@@ -331,11 +458,11 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                             aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
                     );
                     assertEquals(
-                            0l,
+                            0L,
                             aMsg.getHeaders().get("totalReplies")
                     );
                     assertEquals(
-                            0l,
+                            "0",
                             aMsg.getHeaders().get("replyIndex")
                     );
                 })
@@ -403,6 +530,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 m -> {
                     throw new IllegalArgumentException("The error message");
                 },
+                "requestReplyRepliesDemo",
                 IllegalArgumentException.class
         );
 
@@ -428,11 +556,11 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 answers.get(0).getHeaders().get(BinderHeaders.TARGET_DESTINATION)
         );
         assertEquals(
-                0l,
+                0L,
                 answers.get(0).getHeaders().get("totalReplies")
         );
         assertEquals(
-                0l,
+                "0",
                 answers.get(0).getHeaders().get("replyIndex")
         );
         assertEquals(
@@ -447,6 +575,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 m -> {
                     throw new IllegalArgumentException("The error message");
                 },
+                "requestReplyRepliesDemo",
                 NullPointerException.class
         );
 
@@ -470,7 +599,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
             outSink.next("first msg");
             outSink.error(new RuntimeException("The error message"));
             outSink.complete();
-        });
+        },"requestReplyRepliesDemo");
 
         Message<String> inMsg = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
@@ -496,11 +625,11 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                             aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
                     );
                     assertEquals(
-                            -1l,
+                            -1L,
                             aMsg.getHeaders().get("totalReplies")
                     );
                     assertEquals(
-                            0l,
+                            "0",
                             aMsg.getHeaders().get("replyIndex")
                     );
                 })
@@ -518,11 +647,11 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                             aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
                     );
                     assertEquals(
-                            0l,
+                            0L,
                             aMsg.getHeaders().get("totalReplies")
                     );
                     assertEquals(
-                            0l,
+                            "0",
                             aMsg.getHeaders().get("replyIndex")
                     );
                     assertEquals(

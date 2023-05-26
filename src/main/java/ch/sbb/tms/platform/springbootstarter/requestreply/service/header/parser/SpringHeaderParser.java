@@ -15,6 +15,7 @@ public class SpringHeaderParser implements MessageHeaderReplyToParser, MessageHe
     public final static String MULTI_TOTAL_REPLIES = "totalReplies";
     public final static String MULTI_REPLY_INDEX = "replyIndex";
     public final static String GROUPED_MESSAGES = "groupedMessages";
+    public final static String GROUPED_CONTENT_TYPE = "groupedContentType";
     public final static String ERROR_MESSAGE = "errorMessage";
 
     @Override
