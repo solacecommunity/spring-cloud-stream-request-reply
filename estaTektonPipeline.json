@@ -1,0 +1,53 @@
+
+{
+  "$schema": "https://clew-resources.sbb-cloud.net/tekton-schema.json",
+  "productName": "spring-boot-starter-request-reply",
+  "mvn": {
+    "parentPom": "pom.xml",
+    "deployableArtifactsPom": "pom.xml"
+  },
+  "pipelines": [
+    {
+      "name": "continuous",
+      "triggerType": [
+        "GITEVENT",
+        "USER"
+      ],
+      "branchNamePrefixes": [
+        "master",
+        "feature"
+      ],
+      "build": {
+        "buildDockerImage": false,
+        "deployDockerImage": false,
+        "sonarScan": {
+          "enabled": true
+        }
+      },
+      "stages": []
+    },
+    {
+      "name": "release",
+      "triggerType": [
+        "GITEVENT"
+      ],
+      "versionTagEventPatterns": [
+        "^(\\d+\\.)?(\\d+\\.)?(\\*|\\d+)$"
+      ],
+      "build": {
+        "buildDockerImage": true
+      },
+      "stages": [
+        "dev"
+      ]
+    }
+  ],
+  "notifications": [
+    {
+      "type": "EMAIL",
+      "eventTypes": ["FAILURE"],
+      "recipients": ["$actor"]
+    }
+  ],
+  "stages": []
+}
