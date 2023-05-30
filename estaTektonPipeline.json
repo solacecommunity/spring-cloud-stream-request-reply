@@ -35,7 +35,7 @@
         "^(\\d+\\.)?(\\d+\\.)?(\\*|\\d+)$"
       ],
       "build": {
-        "buildDockerImage": true
+        "buildDockerImage": false
       },
       "stages": [
         "dev"
