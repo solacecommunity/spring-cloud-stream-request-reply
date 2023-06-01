@@ -5,6 +5,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MutablePropertySources;
@@ -12,6 +13,8 @@ import org.springframework.core.env.PropertySource;
 import org.springframework.core.env.StandardEnvironment;
 
 public class ReplyTopicWithWildcardsPropertySource extends PropertySource<ReplyTopicWithWildcards> {
+
+    private static final Log logger = LogFactory.getLog(ReplyTopicWithWildcardsPropertySource.class);
     public static final String PROPERTY_SOURCE_NAME = "replyTopicWithWildcards";
     public static final int ACTION_INDEX = 1;
     public static final int BINDING_NAME_INDEX = 1;
@@ -27,7 +30,7 @@ public class ReplyTopicWithWildcardsPropertySource extends PropertySource<ReplyT
         this.uuid = UUID.randomUUID().toString();
     }
 
-    static void addToEnvironment(ConfigurableEnvironment environment, Log logger) {
+    static void addToEnvironment(ConfigurableEnvironment environment) {
         MutablePropertySources sources = environment.getPropertySources();
         PropertySource<?> existing = sources.get(PROPERTY_SOURCE_NAME);
         if (existing != null) {

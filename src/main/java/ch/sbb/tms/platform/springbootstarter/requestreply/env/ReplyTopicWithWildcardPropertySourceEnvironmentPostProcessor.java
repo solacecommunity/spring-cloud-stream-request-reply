@@ -1,6 +1,8 @@
 package ch.sbb.tms.platform.springbootstarter.requestreply.env;
 
 import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.Ordered;
@@ -13,16 +15,6 @@ public class ReplyTopicWithWildcardPropertySourceEnvironmentPostProcessor implem
      */
     public static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 1;
 
-    private final Log logger;
-
-    /**
-     * Create a new {@link ReplyTopicWithWildcardPropertySourceEnvironmentPostProcessor} instance.
-     *
-     * @param logger the logger to use
-     */
-    public ReplyTopicWithWildcardPropertySourceEnvironmentPostProcessor(Log logger) {
-        this.logger = logger;
-    }
 
     @Override
     public int getOrder() {
@@ -31,7 +23,7 @@ public class ReplyTopicWithWildcardPropertySourceEnvironmentPostProcessor implem
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-        ReplyTopicWithWildcardsPropertySource.addToEnvironment(environment, this.logger);
+        ReplyTopicWithWildcardsPropertySource.addToEnvironment(environment);
     }
 
 }

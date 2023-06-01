@@ -26,6 +26,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.junit4.SpringRunner;
 
 import static ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT.PROFILE_LOCAL_APP;
 import static ch.sbb.tms.platform.springbootstarter.requestreply.AbstractRequestReplyIT.PROFILE_TEST;
