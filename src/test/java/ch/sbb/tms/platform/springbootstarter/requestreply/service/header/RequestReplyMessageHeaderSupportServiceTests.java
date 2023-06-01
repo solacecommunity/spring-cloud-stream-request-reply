@@ -121,7 +121,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
 
     @Test
     void wrapList_singleResponses() {
-        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m), "requestReplyRepliesDemo");
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m), "requestReplyRepliesDemo-out-0");
 
         Message<String> m = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
@@ -179,7 +179,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
 
     @Test
     void wrapList_groupedResponses() {
-        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m), "requestReplyRepliesDemo");
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m), "requestReplyRepliesDemo-out-0");
 
         Message<String> m = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
@@ -232,7 +232,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
             outSink.next("first msg");
             outSink.next("second msg");
             outSink.complete();
-        },"requestReplyRepliesDemo");
+        },"requestReplyRepliesDemo-out-0");
 
         Message<String> inMsg = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
@@ -322,7 +322,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
             outSink.next("first msg");
             outSink.next("second msg");
             outSink.complete();
-        },"requestReplyRepliesDemo");
+        },"requestReplyRepliesDemo-out-0");
 
         Message<String> inMsg = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
@@ -394,7 +394,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
 
     @Test
     void wrapList_emptyList_shouldCreateMessageWithTotalRepliesNull() {
-        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> Collections.emptyList(), "requestReplyRepliesDemo");
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> Collections.emptyList(), "requestReplyRepliesDemo-out-0");
 
         Message<String> m = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
@@ -431,7 +431,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
     void wrapFlux_emptyList_shouldCreateMessageWithTotalRepliesNull() {
         Function<Flux<Message<String>>, Flux<Message<String>>> supplier = supportService.wrapFlux(
                 (payloadIn, outSink) -> outSink.complete(),
-                "requestReplyRepliesDemo"
+                "requestReplyRepliesDemo-out-0"
         );
 
         Message<String> inMsg = MessageBuilder.withPayload("demo")
@@ -530,7 +530,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 m -> {
                     throw new IllegalArgumentException("The error message");
                 },
-                "requestReplyRepliesDemo",
+                "requestReplyRepliesDemo-out-0",
                 IllegalArgumentException.class
         );
 
@@ -575,7 +575,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 m -> {
                     throw new IllegalArgumentException("The error message");
                 },
-                "requestReplyRepliesDemo",
+                "requestReplyRepliesDemo-out-0",
                 NullPointerException.class
         );
 
@@ -599,7 +599,7 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
             outSink.next("first msg");
             outSink.error(new RuntimeException("The error message"));
             outSink.complete();
-        },"requestReplyRepliesDemo");
+        },"requestReplyRepliesDemo-out-0");
 
         Message<String> inMsg = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
