@@ -215,7 +215,7 @@ public class PingPongConfig {
       ...
   
       return responses;
-    }, "responseMultiToRequestKnownSizeSolace");
+    }, "responseMultiToRequestKnownSizeSolace-out-0");
   }
 }
 ```
@@ -237,7 +237,7 @@ public class PingPongConfig {
       } catch (Exception e) {
         responseSink.error(new IllegalArgumentException("Business error message", e));
       }
-    }, "responseMultiToRequestRandomSizeSolace");
+    }, "responseMultiToRequestRandomSizeSolace-out-0");
   }
 }
 ```
