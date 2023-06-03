@@ -8,8 +8,8 @@ In order to be able to use the request/reply functionality, add the following se
 
 ```xml
 <dependency>
-    <groupId>ch.sbb.tms.platform</groupId>
-    <artifactId>spring-boot-starter-request-reply</artifactId>
+    <groupId>community.solace.spring.cloud</groupId>
+    <artifactId>spring-cloud-stream-starter-request-reply</artifactId>
 </dependency>
 ```
 

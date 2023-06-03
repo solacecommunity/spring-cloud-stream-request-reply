@@ -66,7 +66,7 @@ spring:
 
 logging:
   level:
-    ch.sbb.tms.platform.springbootstarter.requestreply: DEBUG
+    community.solace.spring.cloud.requestreply: DEBUG
     org.springframework.cloud.function: DEBUG
     org.springframework.cloud.stream.function: DEBUG
     com.solace.spring.cloud.stream.binder: DEBUG

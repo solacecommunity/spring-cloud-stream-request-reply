@@ -4,8 +4,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
-- STTRS-1127: support to send grouped multi response 
+## 5.0.0 - 2023-06-05
+### Changed
+- Support for spring 3
+- Rename packages caused by hand over to solace community
+
+### Added
+_n/a_
+
+### Removed
+- Support for spring 2
+
+## 4.0.0 - 2023-05-30
+### Changed
+_n/a_
+
+### Added
+- STTRS-1127: support to send grouped multi response
+
+### Removed
+_n/a_
 
 ## 3.4.0 - 2023-05-10
 ### Changed
