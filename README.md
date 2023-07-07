@@ -127,7 +127,7 @@ Introduction into [Flux/project reactor](https://www.baeldung.com/reactor-core)
         );
 ```
 
-[Full example](https://code.sbb.ch/projects/TP_TMS_PLATTFORM/repos/springcloudstream-examples/browse/pub_sub_sending/src/main/java/ch/sbb/tms/springcloudstream/examples/pubsubsending/controller/RequestReplyController.java)
+[Full example](examples/request_reply_sending/src/main/java/community/solace/spring/cloud/requestreply/examples/sending/controller/RequestReplyController.java)
 
 ##### How everything is related
 
@@ -201,7 +201,7 @@ public class PingPongConfig {
   }
 }
 ```
-[Full example](https://code.sbb.ch/projects/TP_TMS_PLATTFORM/repos/springcloudstream-examples/browse/request_reply_response/src/main/java/ch/sbb/tms/springcloudstream/examples/requestreplyresponse/config/PingPongConfig.java)
+[Full example](examples/request_reply_response/src/main/java/community/solace/spring/cloud/requestreply/examples/response/config/PingPongConfig.java)
 
 ##### multiple responses, functional
 ```java
@@ -219,7 +219,7 @@ public class PingPongConfig {
   }
 }
 ```
-[Full example](https://code.sbb.ch/projects/TP_TMS_PLATTFORM/repos/springcloudstream-examples/browse/request_reply_response/src/main/java/ch/sbb/tms/springcloudstream/examples/requestreplyresponse/config/PingMultiPongConfig.java)
+[Full example](examples/request_reply_response/src/main/java/community/solace/spring/cloud/requestreply/examples/response/config/PingMultiPongConfig.java)
 
 ##### multiple responses, reactive
 ```java
@@ -241,7 +241,7 @@ public class PingPongConfig {
   }
 }
 ```
-[Full example](https://code.sbb.ch/projects/TP_TMS_PLATTFORM/repos/springcloudstream-examples/browse/request_reply_response/src/main/java/ch/sbb/tms/springcloudstream/examples/requestreplyresponse/config/PingMultiPongConfig.java)
+[Full example](examples/request_reply_response/src/main/java/community/solace/spring/cloud/requestreply/examples/response/config/PingMultiPongConfig.java)
 
 ##### error handling
 You might want to forward errors to requester.
@@ -294,10 +294,6 @@ public class PingPongConfig {
 ```
 
 ##### Variable replacement
-
-According to this documentation:
-- https://confluence.sbb.ch/display/TRS/Solace+Communication-+und+Naming-Patterns
-- https://confluence.sbb.ch/display/TRS/Solace+Pattern+AR+Entscheid
 
 There is a need to replace wildcards in reply topics.
 For example: "{StagePlaceholder}" need to be replaced by the replier stage.

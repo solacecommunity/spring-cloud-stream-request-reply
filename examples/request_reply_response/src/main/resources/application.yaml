@@ -1,0 +1,63 @@
+spring:
+  jackson:
+    default-property-inclusion: NON_EMPTY
+  cloud:
+    function:
+      definition: responseToRequestSolace;responseMultiToRequestKnownSizeSolace;responseMultiToRequestRandomSizeSolace
+    stream:
+      requestreply:
+        variableReplacements:
+          StagePlaceholder: ${RCS_ENV_ROLE:d}-${RCS_CLUSTER:rcsecho}
+      default:
+        binder: ${spring.cloud.stream.defaultBinder:solace}
+        contentType: "application/json"
+      bindings:
+        # RequestReply example
+        responseToRequestSolace-in-0:
+          destination: last_value/temperature/*/*
+          # last_value/temperature/<unit>/<station>
+          binder: solace
+        responseToRequestSolace-out-0:
+          binder: solace
+        responseMultiToRequestKnownSizeSolace-in-0:
+          destination: last_hour/temperature/*/*
+          # last_hour/temperature/<unit>/<station>
+          binder: solace
+        responseMultiToRequestKnownSizeSolace-out-0:
+          binder: solace
+        responseMultiToRequestRandomSizeSolace-in-0:
+          destination: last_day/temperature/*/*
+          # last_day/temperature/<unit>/<station>
+          binder: solace
+        responseMultiToRequestRandomSizeSolace-out-0:
+          binder: solace
+
+      binders:
+        solace:
+          type: solace
+          environment:
+            solace:
+              java:
+                host: ${SOLACE_HOSTS}
+                msgVpn: ${SOLACE_MSG_VPN}
+                clientUsername: ${SOLACE_USERNAME}
+                clientPassword: ${SOLACE_PASSWORD}
+                clientName: @project.artifactId@_${HOSTNAME}_${random.uuid}
+                connectRetries: 5
+                reconnectRetries: 3
+                connectRetriesPerHost: 2
+                reconnectRetryWaitInMillis: 3000
+                apiProperties:
+                  SUB_ACK_WINDOW_SIZE: 255
+                  PUB_ACK_WINDOW_SIZE: 255
+                  PUB_ACK_TIME: 2000
+
+server:
+  port: ${SCSE_REQUESTREPLY_RESPONSE_PORT:9012}
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,bindings"

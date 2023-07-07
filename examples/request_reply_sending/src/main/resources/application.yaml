@@ -1,0 +1,104 @@
+spring:
+  jackson:
+    default-property-inclusion: NON_EMPTY
+  cloud:
+    config.failfast: true
+    function:
+      definition: requestReplyRepliesDemoSolaceDynamic;requestReplyRepliesDemoSolaceStatic;requestMultiReplySampleSolaceKnownSize;requestMultiReplySampleSolaceRandomSize
+    stream:
+      requestreply:
+        bindingMapping:
+          - binding: requestReplyRepliesDemoSolaceDynamic
+            replyTopic: requestReply/response/solace/{StagePlaceholder}/dynamic/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
+            topicPatterns:
+              - last_value/temperature/celsius/.*
+
+          - binding: requestReplyRepliesDemoSolaceStatic
+            replyTopic: requestReply/response/solace/{StagePlaceholder}/static/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
+
+          - binding: requestMultiReplySampleSolaceKnownSize
+            replyTopic: requestReply/response/solace/{StagePlaceholder}/multi_known/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
+            topicPatterns:
+              - last_hour/temperature/celsius/.*
+
+          - binding: requestMultiReplySampleSolaceRandomSize
+            replyTopic: requestReply/response/solace/{StagePlaceholder}/multi_random/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
+            topicPatterns:
+              - last_day/temperature/celsius/.*
+
+      bindings:
+        requestReplyRepliesDemoSolaceDynamic-in-0:
+          destination: ${replyTopicWithWildcards|requestReplyRepliesDemoSolaceDynamic|*}
+          binder: solace
+        requestReplyRepliesDemoSolaceDynamic-out-0:
+          binder: solace
+
+        requestReplyRepliesDemoSolaceStatic-in-0:
+          destination: ${replyTopicWithWildcards|requestReplyRepliesDemoSolaceStatic|*}
+          binder: solace
+        requestReplyRepliesDemoSolaceStatic-out-0:
+          binder: solace
+          destination: last_value/temperature/celsius/livingroom
+
+        requestMultiReplySampleSolaceKnownSize-in-0:
+          destination: ${replyTopicWithWildcards|requestMultiReplySampleSolaceKnownSize|*}
+          binder: solace
+        requestMultiReplySampleSolaceKnownSize-out-0:
+          binder: solace
+        requestMultiReplySampleSolaceRandomSize-in-0:
+          destination: ${replyTopicWithWildcards|requestMultiReplySampleSolaceRandomSize|*}
+          binder: solace
+        requestMultiReplySampleSolaceRandomSize-out-0:
+          binder: solace
+
+      solace:
+        default:
+          producer:
+            prefix: sensor/
+        bindings:
+          # enforce short speaking queue names to not run into to long queue names that are not valid
+          requestReplyRepliesDemoSolaceDynamic-in-0:
+            consumer:
+              queueNameExpression: "destination.trim().replaceAll('[*>]', '_')"
+          requestReplyRepliesDemoSolaceStatic-in-0:
+            consumer:
+              queueNameExpression: "destination.trim().replaceAll('[*>]', '_')"
+          requestMultiReplySampleSolaceKnownSize-in-0:
+            consumer:
+              queueNameExpression: "destination.trim().replaceAll('[*>]', '_')"
+          requestMultiReplySampleSolaceRandomSize-in-0:
+            consumer:
+              queueNameExpression: "destination.trim().replaceAll('[*>]', '_')"
+
+      binders:
+        solace:
+          type: solace
+          environment:
+            solace:
+              java:
+                host: ${SOLACE_HOSTS}
+                msgVpn: ${SOLACE_MSG_VPN}
+                clientUsername: ${SOLACE_USERNAME}
+                clientPassword: ${SOLACE_PASSWORD}
+                clientName: @project.artifactId@_${HOSTNAME}_${random.uuid}
+                connectRetries: 5
+                reconnectRetries: 3
+                connectRetriesPerHost: 2
+                reconnectRetryWaitInMillis: 3000
+                apiProperties:
+                  SUB_ACK_WINDOW_SIZE: 255
+                  PUB_ACK_WINDOW_SIZE: 255
+                  PUB_ACK_TIME: 2000
+
+springdoc:
+  version: '@springdoc.version@'
+  swagger-ui:
+    path: /swagger-ui.html
+    url: /v3/api-docs
+    docExpansion: none
+    deepLinking: true
+    operations-sorter: alpha
+    tags-sorter: alpha
+
+server:
+  port: ${SCSE_REQUESTREPLY_SENDING_PORT:9011}
