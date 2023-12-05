@@ -1,39 +1,20 @@
 package community.solace.spring.cloud.requestreply.service;
 
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
-
+import com.solacesystems.jcsmp.SDTException;
+import com.solacesystems.jcsmp.SDTStream;
 import community.solace.spring.cloud.requestreply.config.RequestReplyProperties;
 import community.solace.spring.cloud.requestreply.exception.RequestReplyException;
 import community.solace.spring.cloud.requestreply.service.header.RequestReplyMessageHeaderSupportService;
 import community.solace.spring.cloud.requestreply.service.header.parser.SpringHeaderParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.RemoteErrorException;
-import com.solacesystems.jcsmp.SDTException;
-import com.solacesystems.jcsmp.SDTStream;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxSink;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cloud.stream.binder.BinderHeaders;
@@ -46,6 +27,15 @@ import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.converter.MessageConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
+
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static community.solace.spring.cloud.requestreply.util.CheckedExceptionWrapper.throwingUnchecked;
 
@@ -77,6 +67,44 @@ public class RequestReplyServiceImpl implements RequestReplyService {
 
     @Autowired
     private RequestReplyProperties requestReplyProperties;
+
+    @Autowired(required = false)
+    private MeterRegistry registry;
+
+    private final Map<String, Timer> meterTime = new ConcurrentHashMap<>();
+
+    private Timer getMeterTime(String bindingName) {
+        if (registry == null) {
+            return null;
+        }
+
+        return meterTime.computeIfAbsent(
+                bindingName,
+                bn -> Timer.builder("requestReply.rtt")
+                        .description("RequestReply round trip time")
+                        .tag("binding", bindingName)
+                        .serviceLevelObjectives(
+                                Duration.ofMillis(5),
+                                Duration.ofMillis(10),
+                                Duration.ofMillis(25),
+                                Duration.ofMillis(50),
+                                Duration.ofMillis(100),
+                                Duration.ofMillis(250),
+                                Duration.ofMillis(500),
+                                Duration.ofSeconds(1),
+                                Duration.ofSeconds(2),
+                                Duration.ofSeconds(10),
+                                Duration.ofSeconds(20),
+                                Duration.ofSeconds(40),
+                                Duration.ofSeconds(60),
+                                Duration.ofSeconds(90),
+                                Duration.ofSeconds(120),
+                                Duration.ofSeconds(150),
+                                Duration.ofMinutes(3),
+                                Duration.ofMinutes(5)
+                        )
+                        .register(registry));
+    }
 
     @Override
     public <Q, A> A requestAndAwaitReplyToTopic(
@@ -172,8 +200,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                         true
                 ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS));
                 fluxSink.complete();
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 fluxSink.error(e);
             }
         });
@@ -204,8 +231,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                         true
                 ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS));
                 fluxSink.complete();
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 fluxSink.error(e);
             }
         });
@@ -232,12 +258,12 @@ public class RequestReplyServiceImpl implements RequestReplyService {
     /**
      * sends the given request to the given message channel and prepares the framework to await the response within the given timeframe to direct them at the consumer provided
      *
-     * @param <Q> question/request type
-     * @param request the request to be sent
-     * @param bindingName the message channel name to send the request to. Example: requestReplyRepliesDemoTibrv
+     * @param <Q>                question/request type
+     * @param request            the request to be sent
+     * @param bindingName        the message channel name to send the request to. Example: requestReplyRepliesDemoTibrv
      * @param requestDestination the message channel name to send the request to
-     * @param responseConsumer the consumer to handle incoming replies
-     * @param multipleResponses indicator if more than one response can be accepted
+     * @param responseConsumer   the consumer to handle incoming replies
+     * @param multipleResponses  indicator if more than one response can be accepted
      * @return a {@link CompletableFuture} spanning the request and response await time
      */
     private <Q> CompletableFuture<Void> requestReply(
@@ -271,17 +297,16 @@ public class RequestReplyServiceImpl implements RequestReplyService {
         }
 
         if (!StringUtils.hasText(replyTopic) || Objects.equals(replyTopic, MISSING_DESTINATION)) {
-            throw new IllegalArgumentException("Missing configuration option: spring.cloud.stream.requestreply[].replyTopic where binding: " + bindingName + "");
+            throw new IllegalArgumentException("Missing configuration option: spring.cloud.stream.requestreply[].replyTopic where binding: " + bindingName);
         }
 
         // Accepted that a client not using this lib but solace,
         // may be confused about not finding it in the correct solace header locations.
-        // But so this lib will work if TibRv and Solace binder are in pom.xml of project.
+        // But so this lib will work if TibRv and Solace binder are in pom.xml of a project.
         MessageBuilder<?> messageBuilder;
         if (request instanceof Message) {
             messageBuilder = MessageBuilder.fromMessage((Message<?>) request);
-        }
-        else {
+        } else {
             messageBuilder = MessageBuilder.withPayload(request)
                     .setHeader(SpringHeaderParser.GROUPED_MESSAGES, true);
         }
@@ -307,17 +332,18 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             streamBridge.send(bindingName, message);
         };
 
-        return postRequest(correlationId, requestRunnable, responseConsumer, timeoutPeriod, multipleResponses);
+        return postRequest(bindingName, correlationId, requestRunnable, responseConsumer, timeoutPeriod, multipleResponses);
     }
 
     private CompletableFuture<Void> postRequest(
+            @NotEmpty String bindingName,
             @NotEmpty String correlationId,
             @NotNull Runnable requestRunnable,
             @NotNull Consumer<Message<?>> responseConsumer,
             @NotNull @Valid Duration timeoutPeriod,
             boolean multipleResponses
     ) {
-        ResponseHandler responseHandler = new ResponseHandler(responseConsumer, multipleResponses);
+        ResponseHandler responseHandler = new ResponseHandler(responseConsumer, multipleResponses, getMeterTime(bindingName));
         ResponseHandler previous = PENDING_RESPONSES.putIfAbsent(correlationId, responseHandler);
         if (previous != null) {
             throw new IllegalArgumentException("response for correlation ID " + correlationId + " is already awaited");
@@ -328,8 +354,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 LOG.trace("Querying correlationId {}", correlationId);
                 requestRunnable.run();
                 responseHandler.await();
-            }
-            finally {
+            } finally {
                 LOG.trace("Disregarding correlationId {}", correlationId);
                 PENDING_RESPONSES.remove(correlationId);
             }
@@ -348,8 +373,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
     private <T> T wrapTimeOutException(TimeoutSupplier<T> businessLogic) throws TimeoutException, RemoteErrorException {
         try {
             return businessLogic.get();
-        }
-        catch (InterruptedException | TimeoutException | ExecutionException te) {
+        } catch (InterruptedException | TimeoutException | ExecutionException te) {
             if (te instanceof ExecutionException &&
                     te.getCause() instanceof RequestReplyException &&
                     te.getCause().getCause() instanceof RemoteErrorException) {
@@ -381,8 +405,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
         ResponseHandler handler = PENDING_RESPONSES.get(correlationId);
         if (handler == null) {
             LOG.info("Received unexpected message or maybe too late response: {}", message);
-        }
-        else {
+        } else {
             if (totalReplies != null) {
                 if (totalReplies == UNKNOWN_SIZE) {
                     handler.setUnknownReplies();
@@ -393,11 +416,10 @@ public class RequestReplyServiceImpl implements RequestReplyService {
 
                 if (totalReplies == EMPTY_RESPONSE) {
                     if (StringUtils.hasText(errorMessage)) {
-                        // null will be filtered. An empty flux will be returned.
+                        // null will be filtered. Empty flux will be returned.
                         handler.errorResponse(errorMessage);
-                    }
-                    else {
-                        // null will be filtered. An empty flux will be returned.
+                    } else {
+                        // null will be filtered. Empty flux will be returned.
                         handler.emptyResponse();
                     }
                     return;
@@ -406,13 +428,11 @@ public class RequestReplyServiceImpl implements RequestReplyService {
 
             if (StringUtils.hasText(errorMessage)) {
                 handler.errorResponse(errorMessage);
-            }
-            else if (isMultiResponse(message)) {
+            } else if (isMultiResponse(message)) {
                 for (Message<?> msg : parseMultiResponse((Message<SDTStream>) message)) {
                     handler.receive(msg);
                 }
-            }
-            else {
+            } else {
                 handler.receive(message);
             }
         }
@@ -428,27 +448,26 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             List<Message<?>> msgs = new ArrayList<>();
             while (message.getPayload().hasRemaining()) {
                 switch (message.getPayload().readString()) {
-                case "BytesMessage" -> msgs.add(
-                        MessageBuilder
-                                .withPayload(message.getPayload().readBytes())
-                                .copyHeaders(new IntegrationMessageHeaderAccessor(message).toMap())
-                                .build()
-                );
-                case "TextMessage", "XMLContentMessage" -> msgs.add(
-                        MessageBuilder
-                                .withPayload(new String(message.getPayload().readBytes(), StandardCharsets.UTF_8))
-                                .copyHeaders(new IntegrationMessageHeaderAccessor(message).toMap())
-                                .build()
-                );
-                case "StreamMessage", "MapMessage" -> throw new IllegalArgumentException(
-                        "Message type: StreamMessage and MapMessage are not supported for " +
-                                SpringHeaderParser.GROUPED_MESSAGES
-                );
+                    case "BytesMessage" -> msgs.add(
+                            MessageBuilder
+                                    .withPayload(message.getPayload().readBytes())
+                                    .copyHeaders(new IntegrationMessageHeaderAccessor(message).toMap())
+                                    .build()
+                    );
+                    case "TextMessage", "XMLContentMessage" -> msgs.add(
+                            MessageBuilder
+                                    .withPayload(new String(message.getPayload().readBytes(), StandardCharsets.UTF_8))
+                                    .copyHeaders(new IntegrationMessageHeaderAccessor(message).toMap())
+                                    .build()
+                    );
+                    case "StreamMessage", "MapMessage" -> throw new IllegalArgumentException(
+                            "Message type: StreamMessage and MapMessage are not supported for " +
+                                    SpringHeaderParser.GROUPED_MESSAGES
+                    );
                 }
             }
             return msgs;
-        }
-        catch (SDTException e) {
+        } catch (SDTException e) {
             throw new IllegalArgumentException(e);
         }
     }
