@@ -11,7 +11,7 @@
 
     <groupId>community.solace.spring.cloud</groupId>
     <artifactId>spring-cloud-stream-starter-request-reply</artifactId>
-    <version>5.0.4</version>
+    <version>5.1.0</version>
     <name>spring-cloud-stream-starter-request-reply</name>
     <description>Spring Boot Starter project to provide request and reply functionality to Spring Cloud Stream
         projects
