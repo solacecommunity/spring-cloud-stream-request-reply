@@ -11,13 +11,13 @@ channels:
   request:
     address: tms/iad/lta/p/v1/prod/my/request
     description: Get a compacted view of the past.
-    message:
+    messages:
       request:
         $ref: '#/components/messages/request'
   response:
     address: null
     description: The response to your request
-    message:
+    messages:
       normalResponse:
         $ref: '#/components/messages/normalResponse'
       groupedResponse:
@@ -25,14 +25,14 @@ channels:
 
 operations:
   requestReply:
-    action: receive
+    action: send
     channel:
       $ref: '#/channels/request'
     reply:
       channel:
         $ref: '#/channels/response'
       address:
-        location: '$message.header#/replyChannel'
+        location: '$message.header#/replyTo'
     description: >
       Request reply example operation
 
@@ -97,7 +97,7 @@ components:
               description: documentation for request reply handling at tms
           groupedMessages:
             type: boolean
-            description: | 
+            description: |
               Indicates that at a multi response channel a grouped messages is acceptable.
               This flag should be `true`if:
               - You expect multiple response > 200
@@ -176,7 +176,6 @@ components:
               - 4-25
           groupedMessages:
             type: boolean
-            enum: true
             description: needs to be `true` to indicate a grouped "groupedResponse" message
 
       traits:
