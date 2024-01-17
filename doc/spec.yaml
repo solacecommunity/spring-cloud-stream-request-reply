@@ -31,6 +31,9 @@ operations:
     reply:
       channel:
         $ref: '#/channels/response'
+      messages:
+        - $ref: '#/channels/response/messages/normalResponse'
+        - $ref: '#/channels/response/messages/groupedResponse'
       address:
         location: '$message.header#/replyTo'
     description: >
