@@ -88,4 +88,8 @@ public class ResponseHandler {
         }
         countDownLatch.countDown();
     }
+
+    public void abort() {
+        finished();
+    }
 }

@@ -950,4 +950,28 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
 
         resetMocks();
     }
+
+    @Test
+    void requestAndAwaitReplyToTopic_threadLeak() {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+        for (int i = 0; i < 10; i++) {
+            try {
+                requestReplyService.requestAndAwaitReplyToBinding(
+                        request,
+                        "requestReplyRepliesDemo",
+                        SensorReading.class,
+                        Duration.ofMillis(1)
+                );
+            } catch (TimeoutException | RemoteErrorException ignored) {
+            }
+        }
+
+        Mockito.verify(streamBridge, Mockito.times(10)).send(
+                destinationCaptor.capture(),
+                messageCaptor.capture()
+        );
+
+        assertEquals(0, requestReplyService.runningRequests());
+    }
 }

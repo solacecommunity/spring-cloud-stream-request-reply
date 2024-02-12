@@ -49,7 +49,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
     static final long UNKNOWN_SIZE = -1;
 
     private static final Logger LOG = LoggerFactory.getLogger(RequestReplyServiceImpl.class);
-    private static final ExecutorService REQUEST_REPLY_EXECUTOR = Executors.newCachedThreadPool();
+    private static final ThreadPoolExecutor REQUEST_REPLY_EXECUTOR = (ThreadPoolExecutor) Executors.newCachedThreadPool();
     private static final Map<String, ResponseHandler> PENDING_RESPONSES = new ConcurrentHashMap<>();
 
     @Autowired(required = false)
@@ -362,6 +362,15 @@ public class RequestReplyServiceImpl implements RequestReplyService {
 
         return CompletableFuture.runAsync(runnable, REQUEST_REPLY_EXECUTOR)
                 .orTimeout(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS)
+                .exceptionally(ex -> {
+                    responseHandler.abort();
+
+                    if (ex instanceof RuntimeException rex) {
+                        throw rex;
+                    } else {
+                        throw new RuntimeException(ex);
+                    }
+                })
                 .whenCompleteAsync((reply, error) -> {
                     if (error != null) {
                         LOG.error("Failed to collect response for correlationId {}: {}: {}", correlationId, error.getClass(),
@@ -470,5 +479,9 @@ public class RequestReplyServiceImpl implements RequestReplyService {
         } catch (SDTException e) {
             throw new IllegalArgumentException(e);
         }
+    }
+
+    public int runningRequests() {
+        return REQUEST_REPLY_EXECUTOR.getActiveCount();
     }
 }
