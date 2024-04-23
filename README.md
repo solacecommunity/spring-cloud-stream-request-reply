@@ -483,10 +483,11 @@ More precisely:
 
 Tested with:
 
-| SpringBoot 	| SpringCloudStream 	|
-|------------	|-------------------	|
-| 2.6.6      	| 2021.0.1          	| 
-| 2.6.6      	| 2021.0.3           	|
+| SpringBoot 	 | SpringCloudStream 	  |
+|--------------|----------------------|
+| 2.6.6      	 | 2021.0.1          	  | 
+| 2.6.6      	 | 2021.0.3           	 |
+| 3.2.5        | 2023.0.1           	 |
 
 <!-- reused links -->
 
