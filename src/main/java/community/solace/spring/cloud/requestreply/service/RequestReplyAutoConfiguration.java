@@ -4,13 +4,10 @@
 
 package community.solace.spring.cloud.requestreply.service;
 
-import java.util.function.Consumer;
-
 import community.solace.spring.cloud.requestreply.config.RequestReplyProperties;
 import community.solace.spring.cloud.requestreply.service.header.parser.SolaceHeaderParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -32,6 +29,8 @@ import org.springframework.core.ResolvableType;
 import org.springframework.core.annotation.Order;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
+
+import java.util.function.Consumer;
 
 @Configuration
 @ConditionalOnClass({MessageChannel.class})
@@ -55,7 +54,6 @@ public class RequestReplyAutoConfiguration implements ApplicationContextInitiali
     @Order(SOLACE_CONFIGURERS_PRIORITY)
     @ConditionalOnMissingBean
     @ConditionalOnClass(name = {
-            "com.solace.spring.cloud.stream.binder.messaging.SolaceHeaders",
             "com.solacesystems.jcsmp.Destination"
     })
     public SolaceHeaderParser solaceHeaderParser() {

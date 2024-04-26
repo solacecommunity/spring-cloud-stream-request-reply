@@ -1,7 +1,5 @@
 package community.solace.spring.cloud.requestreply.service;
 
-import java.util.List;
-
 import community.solace.spring.cloud.requestreply.AbstractRequestReplyIT;
 import community.solace.spring.cloud.requestreply.service.header.RequestReplyMessageHeaderSupportService;
 import community.solace.spring.cloud.requestreply.service.header.parser.correlationid.MessageCorrelationIdParser;
@@ -9,13 +7,13 @@ import community.solace.spring.cloud.requestreply.service.header.parser.destinat
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.MessageErrorMessageParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.replyto.MessageReplyToParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.totalreplies.MessageTotalRepliesParser;
-import com.solace.spring.cloud.stream.binder.messaging.SolaceHeaders;
 import org.junit.jupiter.api.Test;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.integration.IntegrationMessageHeaderAccessor;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
+
+import java.util.List;
 
 import static community.solace.spring.cloud.requestreply.service.header.parser.HttpHeaderParser.HTTP_HEADER_CORRELATION_ID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -90,7 +88,7 @@ class HeaderParserTests extends AbstractRequestReplyIT {
         assertEquals(correlationId2, headerSupport.getCorrelationId(message));
 
         String correlationId3 = "93205362-d3ea-4fb7-9fa9-correlationId3";
-        mb.setHeader(SolaceHeaders.CORRELATION_ID, correlationId3);
+        mb.setHeader("solace_correlationId"/*SolaceHeaders.CORRELATION_ID*/, correlationId3);
         message = mb.build();
         assertEquals(correlationId3, headerSupport.getCorrelationId(message));
 

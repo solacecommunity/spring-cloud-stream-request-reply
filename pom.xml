@@ -5,13 +5,13 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.1.6</version>
+        <version>3.2.5</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
     <groupId>community.solace.spring.cloud</groupId>
     <artifactId>spring-cloud-stream-starter-request-reply</artifactId>
-    <version>5.1.1</version>
+    <version>5.1.2</version>
     <name>spring-cloud-stream-starter-request-reply</name>
     <description>Spring Boot Starter project to provide request and reply functionality to Spring Cloud Stream
         projects
@@ -19,9 +19,9 @@
 
     <properties>
         <java.version>17</java.version>
-        <spring.boot.version>3.1.0</spring.boot.version>
-        <solace-spring-cloud.version>3.0.0</solace-spring-cloud.version>
-        <spring-cloud.version>2022.0.4</spring-cloud.version>
+        <spring.boot.version>3.2.5</spring.boot.version>
+        <spring-cloud.version>2023.0.1</spring-cloud.version>
+        <solace.jcsmp.version>10.23.0</solace.jcsmp.version>
         <commons-logging.version>1.2</commons-logging.version>
     </properties>
 
@@ -64,15 +64,6 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <dependency>
-                <groupId>com.solace.spring.cloud</groupId>
-                <artifactId>solace-spring-cloud-bom</artifactId>
-                <version>${solace-spring-cloud.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-                <optional>true</optional>
-            </dependency>
-
         </dependencies>
     </dependencyManagement>
 
@@ -87,7 +78,11 @@
             <artifactId>spring-boot-configuration-processor</artifactId>
             <optional>true</optional>
         </dependency>
-
+        <dependency>
+            <groupId>com.solacesystems</groupId>
+            <artifactId>sol-jcsmp</artifactId>
+            <version>${solace.jcsmp.version}</version>
+        </dependency>
         <!-- Spring Cloud -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -125,26 +120,9 @@
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-core</artifactId>
         </dependency>
-
-        <!-- Solace -->
         <dependency>
-            <groupId>com.solace.spring.cloud</groupId>
-            <artifactId>spring-cloud-starter-stream-solace</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>commons-logging</groupId>
-                    <artifactId>commons-logging</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>log4j-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.springframework.cloud</groupId>
-                    <artifactId>spring-cloud-stream</artifactId>
-                </exclusion>
-            </exclusions>
-            <optional>true</optional>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
         </dependency>
 
         <!-- test -->
@@ -270,7 +248,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>templating-maven-plugin</artifactId>
-                <version>1.0.0</version>
+                <version>3.0.0</version>
                 <executions>
                     <execution>
                         <id>generate-templated-sources</id>
@@ -284,7 +262,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>build-helper-maven-plugin</artifactId>
-                <version>3.2.0</version>
+                <version>3.5.0</version>
                 <executions>
                     <execution>
                         <id>add-generated-sources</id>
@@ -303,7 +281,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-release-plugin</artifactId>
-                <version>2.5.1</version>
+                <version>3.0.1</version>
                 <configuration>
                     <tagNameFormat>@{project.version}</tagNameFormat>
                 </configuration>
@@ -311,7 +289,7 @@
                     <dependency>
                         <groupId>org.apache.maven.shared</groupId>
                         <artifactId>maven-invoker</artifactId>
-                        <version>2.2</version>
+                        <version>3.2.0</version>
                     </dependency>
                 </dependencies>
             </plugin>
@@ -327,7 +305,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>2.10.4</version>
+                <version>3.6.3</version>
                 <executions>
                     <execution>
                         <id>attach-javadocs</id>
@@ -344,7 +322,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <version>3.3.0</version>
+                <version>3.3.1</version>
                 <executions>
                     <execution>
                         <id>attach-sources</id>
@@ -357,7 +335,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
-                <version>1.5.0</version>
+                <version>1.6.0</version>
                 <configuration>
                     <updatePomFile>true</updatePomFile>
                     <flattenMode>oss</flattenMode>
