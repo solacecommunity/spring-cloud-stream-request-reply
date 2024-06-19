@@ -15,7 +15,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("spring.cloud.stream.requestreply")
 public class RequestReplyProperties {
-    private List<String> copyHeadersOnWrap = new ArrayList<>();
+    private final List<String> copyHeadersOnWrap = new ArrayList<>();
     private List<BinderTopicMappings> bindingMapping = new ArrayList<>();
     private Map<String, String> variableReplacements = new HashMap<>();
 
