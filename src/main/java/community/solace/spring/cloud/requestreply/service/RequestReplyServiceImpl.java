@@ -111,14 +111,16 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             Q request,
             @NotEmpty String requestDestination,
             Class<A> expectedClass,
-            @NotNull @Valid Duration timeoutPeriod
+            @NotNull @Valid Duration timeoutPeriod,
+            Map<String, Object> additionalHeaders
     ) throws TimeoutException, RemoteErrorException {
         return wrapTimeOutException(() ->
                 requestReplyToTopic(
                         request,
                         requestDestination,
                         expectedClass,
-                        timeoutPeriod
+                        timeoutPeriod,
+                        additionalHeaders
                 ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS)
         );
     }
@@ -128,14 +130,16 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             Q request,
             @NotEmpty String bindingName,
             Class<A> expectedClass,
-            @NotNull @Valid Duration timeoutPeriod
+            @NotNull @Valid Duration timeoutPeriod,
+            Map<String, Object> additionalHeaders
     ) throws TimeoutException, RemoteErrorException {
         return wrapTimeOutException(() ->
                 requestReplyToBinding(
                         request,
                         bindingName,
                         expectedClass,
-                        timeoutPeriod
+                        timeoutPeriod,
+                        additionalHeaders
                 ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS)
         );
     }
@@ -145,7 +149,8 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             Q request,
             @NotEmpty String bindingName,
             Class<A> expectedClass,
-            @NotNull @Valid Duration timeoutPeriod
+            @NotNull @Valid Duration timeoutPeriod,
+            Map<String, Object> additionalHeaders
     ) {
         final AtomicReference<A> returnValue = new AtomicReference<>();
 
@@ -155,7 +160,8 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 bindingServiceProperties.getBindingDestination(bindingName + "-out-0"),
                 msg -> returnValue.set(extractMsgBody(expectedClass, msg)),
                 timeoutPeriod,
-                false
+                false,
+                additionalHeaders
         ).thenApply(none -> returnValue.get());
     }
 
@@ -164,7 +170,8 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             Q request,
             @NotEmpty String requestDestination,
             Class<A> expectedClass,
-            @NotNull @Valid Duration timeoutPeriod
+            @NotNull @Valid Duration timeoutPeriod,
+            Map<String, Object> additionalHeaders
     ) {
         final AtomicReference<A> returnValue = new AtomicReference<>();
 
@@ -178,7 +185,8 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 requestDestination,
                 msg -> returnValue.set(extractMsgBody(expectedClass, msg)),
                 timeoutPeriod,
-                false
+                false,
+                additionalHeaders
         ).thenApply(none -> returnValue.get());
     }
 
@@ -187,7 +195,8 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             Q request,
             @NotEmpty String bindingName,
             Class<A> expectedClass,
-            @NotNull @Valid Duration timeoutPeriod
+            @NotNull @Valid Duration timeoutPeriod,
+            Map<String, Object> additionalHeaders
     ) {
         return Flux.create(fluxSink -> {
             try {
@@ -197,7 +206,8 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                         bindingServiceProperties.getBindingDestination(bindingName + "-out-0"),
                         fluxResponseConsumer(expectedClass, fluxSink),
                         timeoutPeriod,
-                        true
+                        true,
+                        additionalHeaders
                 ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS));
                 fluxSink.complete();
             } catch (Exception e) {
@@ -211,7 +221,8 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             Q request,
             @NotEmpty String requestDestination,
             Class<A> expectedClass,
-            @NotNull @Valid Duration timeoutPeriod
+            @NotNull @Valid Duration timeoutPeriod,
+            Map<String, Object> additionalHeaders
     ) {
         return Flux.create(fluxSink -> {
             try {
@@ -228,7 +239,8 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                         requestDestination,
                         fluxResponseConsumer(expectedClass, fluxSink),
                         timeoutPeriod,
-                        true
+                        true,
+                        additionalHeaders
                 ).get(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS));
                 fluxSink.complete();
             } catch (Exception e) {
@@ -272,7 +284,8 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             @NotEmpty String requestDestination,
             @NotNull Consumer<Message<?>> responseConsumer,
             @NotNull @Valid Duration timeoutPeriod,
-            boolean multipleResponses
+            boolean multipleResponses,
+            Map<String, Object> additionalHeaders
     ) {
         String correlationId = null;
         if (request instanceof Message) {
@@ -313,7 +326,11 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 .setCorrelationId(correlationId)
                 .setHeader(BinderHeaders.TARGET_DESTINATION, requestDestinationRaw)
                 .setHeader(MessageHeaders.REPLY_CHANNEL, replyTopic);
-
+        if (additionalHeaders != null) {
+            for (var header : additionalHeaders.entrySet()) {
+                messageBuilder.setHeader(header.getKey(), header.getValue());
+            }
+        }
         return postRequest(bindingName + "-out-0", correlationId, messageBuilder.build(), responseConsumer, timeoutPeriod, multipleResponses);
     }
 

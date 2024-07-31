@@ -1,13 +1,5 @@
 package community.solace.spring.cloud.requestreply.service.header;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
-
 import community.solace.spring.cloud.requestreply.config.RequestReplyProperties;
 import community.solace.spring.cloud.requestreply.service.MessageConverter;
 import community.solace.spring.cloud.requestreply.service.header.parser.SpringHeaderParser;
@@ -19,10 +11,6 @@ import community.solace.spring.cloud.requestreply.service.header.parser.totalrep
 import community.solace.spring.cloud.requestreply.util.MessageChunker;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxSink;
-import reactor.core.publisher.Mono;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.config.BindingProperties;
@@ -36,6 +24,18 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.StringUtils;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
+import reactor.core.publisher.Mono;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 
 @Service
 public class RequestReplyMessageHeaderSupportService {
@@ -124,21 +124,41 @@ public class RequestReplyMessageHeaderSupportService {
      * wrap the given function, copying message headers from incoming to outgoing message,
      * properly setting correlation ID and target
      *
-     * @param <Q> incoming message payload type
-     * @param <A> outgoing message payload type
-     * @param payloadFunction mapping function from incoming to outgoing payload
+     * @param <Q>                   incoming message payload type
+     * @param <A>                   outgoing message payload type
+     * @param payloadFunction       mapping function from incoming to outgoing payload
      * @param applicationExceptions A list of exceptions that will return the error to the requestor
      * @return message with the payload function applied to the incoming message and the message headers prepared for answering
      */
     @SafeVarargs
     public final <Q, A, T extends Function<Q, A>, E extends Throwable> Function<Message<Q>, Message<A>> wrap(T payloadFunction, Class<E>... applicationExceptions) {
+        return wrap(payloadFunction, null, applicationExceptions);
+    }
+
+    /**
+     * wrap the given function, copying message headers from incoming to outgoing message,
+     * properly setting correlation ID and target
+     *
+     * @param <Q>                   incoming message payload type
+     * @param <A>                   outgoing message payload type
+     * @param payloadFunction       mapping function from incoming to outgoing payload
+     * @param additionalHeaders     additional headers to be added to the response message
+     * @param applicationExceptions A list of exceptions that will return the error to the requestor
+     * @return message with the payload function applied to the incoming message and the message headers prepared for answering
+     */
+    @SafeVarargs
+    public final <Q, A, T extends Function<Q, A>, E extends Throwable> Function<Message<Q>, Message<A>> wrap(T payloadFunction, Map<String, Object> additionalHeaders, Class<E>... applicationExceptions) {
         return request -> {
             try {
                 MessageBuilder<A> mb = MessageBuilder.withPayload(payloadFunction.apply(request.getPayload()));
                 transferAndAdoptHeaders(request, mb);
+                if (additionalHeaders != null) {
+                    for (var header : additionalHeaders.entrySet()) {
+                        mb.setHeader(header.getKey(), header.getValue());
+                    }
+                }
                 return mb.build();
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 if (applicationExceptions != null) {
                     for (Class<E> applicationException : applicationExceptions) {
                         if (applicationException.isInstance(e)) {
@@ -155,10 +175,10 @@ public class RequestReplyMessageHeaderSupportService {
      * wrap the given function, copying message headers from incoming to outgoing message,
      * properly setting correlation ID and target
      *
-     * @param <Q> incoming message payload type
-     * @param <A> outgoing message payload type
-     * @param payloadFunction mapping function from incoming to outgoing payload
-     * @param bindingName the name of the output binding. Required to get configured content type, to encode message.
+     * @param <Q>                   incoming message payload type
+     * @param <A>                   outgoing message payload type
+     * @param payloadFunction       mapping function from incoming to outgoing payload
+     * @param bindingName           the name of the output binding. Required to get configured content type, to encode message.
      * @param applicationExceptions A list of exceptions that will return the error to the requestor
      * @return message with the payload function applied to the incoming message and the message headers prepared for answering
      */
@@ -170,8 +190,7 @@ public class RequestReplyMessageHeaderSupportService {
 
                 if (CollectionUtils.isEmpty(rawResponses)) {
                     return List.of(emptyMsg(request, 0, 0));
-                }
-                else {
+                } else {
 
                     if (Boolean.TRUE.equals(request.getHeaders().get(SpringHeaderParser.GROUPED_MESSAGES)) && StringUtils.hasText(bindingName)) {
                         return wrapListGroupedResponses(request, rawResponses, getContentType(bindingName));
@@ -179,8 +198,7 @@ public class RequestReplyMessageHeaderSupportService {
                         return wrapListSingleResponses(request, rawResponses);
                     }
                 }
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 if (applicationExceptions != null) {
                     for (Class<E> applicationException : applicationExceptions) {
                         if (applicationException.isInstance(e)) {
@@ -203,7 +221,7 @@ public class RequestReplyMessageHeaderSupportService {
         return response;
     }
 
-    @SuppressWarnings("unchecked" )
+    @SuppressWarnings("unchecked")
     private <A, Q> List<Message<A>> wrapListGroupedResponses(Message<Q> request, List<A> rawResponses, MimeType outputContentType) {
         List<Message<byte[]>> byteMessages = new ArrayList<>();
         for (int i = 0; i < rawResponses.size(); i++) {
@@ -239,10 +257,10 @@ public class RequestReplyMessageHeaderSupportService {
      * wrap the given function, copying message headers from incoming to outgoing message,
      * properly setting correlation ID and target
      *
-     * @param <Q> incoming message payload type
-     * @param <A> outgoing message payload type
+     * @param <Q>             incoming message payload type
+     * @param <A>             outgoing message payload type
      * @param payloadFunction mapping function from incoming to outgoing payload
-     * @param bindingName the name of the output binding. Required to get configured content type, to encode message.
+     * @param bindingName     the name of the output binding. Required to get configured content type, to encode message.
      * @return message with the payload function applied to the incoming message and the message headers prepared for answering
      */
     public final <Q, A> Function<Flux<Message<Q>>, Flux<Message<A>>> wrapFlux(BiConsumer<Q, FluxSink<A>> payloadFunction, String bindingName) {
@@ -253,8 +271,8 @@ public class RequestReplyMessageHeaderSupportService {
      * wrap the given function, copying message headers from incoming to outgoing message,
      * properly setting correlation ID and target
      *
-     * @param <Q> incoming message payload type
-     * @param <A> outgoing message payload type
+     * @param <Q>             incoming message payload type
+     * @param <A>             outgoing message payload type
      * @param payloadFunction mapping function from incoming to outgoing payload
      * @return message with the payload function applied to the incoming message and the message headers prepared for answering
      */
@@ -269,8 +287,7 @@ public class RequestReplyMessageHeaderSupportService {
                         } else {
                             return wrapFluxSingleResponses(request, responses);
                         }
-                    }
-                    catch (Exception e) {
+                    } catch (Exception e) {
                         return Flux.error(e);
                     }
                 });
@@ -288,7 +305,7 @@ public class RequestReplyMessageHeaderSupportService {
                 .onErrorResume(err -> Mono.just(errorResponse(request, err)));
     }
 
-    @SuppressWarnings("unchecked" )
+    @SuppressWarnings("unchecked")
     private <Q, A> Flux<Message<A>> wrapFluxGroupedResponses(Message<Q> request, Flux<A> responses, MimeType outputContentType, Duration groupTimeout) {
         AtomicLong index = new AtomicLong(0);
         return responses
@@ -316,17 +333,17 @@ public class RequestReplyMessageHeaderSupportService {
         return StringUtils.hasText(bindingProperties.getContentType()) ? MimeType.valueOf(bindingProperties.getContentType()) : MimeTypeUtils.APPLICATION_JSON;
     }
 
-    @SuppressWarnings("unchecked" )
+    @SuppressWarnings("unchecked")
     private <Q, A> Message<A> emptyMsg(Message<Q> request, long totalReplies, long replyIndex) {
-        MessageBuilder<String> mb = MessageBuilder.withPayload("" );
+        MessageBuilder<String> mb = MessageBuilder.withPayload("");
         transferAndAdoptHeaders(request, mb, totalReplies, "" + replyIndex);
         return (Message<A>) mb.build();
     }
 
     @NotNull
-    @SuppressWarnings("unchecked" )
+    @SuppressWarnings("unchecked")
     private <Q, A> Message<A> errorResponse(Message<Q> request, Throwable e) {
-        MessageBuilder<String> mb = MessageBuilder.withPayload("" );
+        MessageBuilder<String> mb = MessageBuilder.withPayload("");
         transferAndAdoptHeaders(request, mb, 0, "0");
         mb.setHeader(SpringHeaderParser.ERROR_MESSAGE, e.getMessage());
         return (Message<A>) mb.build();
