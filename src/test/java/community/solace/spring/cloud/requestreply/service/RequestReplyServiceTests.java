@@ -1,9 +1,5 @@
 package community.solace.spring.cloud.requestreply.service;
 
-import java.time.Duration;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
-
 import community.solace.spring.cloud.requestreply.AbstractRequestReplyIT;
 import community.solace.spring.cloud.requestreply.model.SensorReading;
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.RemoteErrorException;
@@ -11,9 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mockito;
-import reactor.core.publisher.Flux;
-import reactor.test.StepVerifier;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.cloud.stream.binder.BinderHeaders;
@@ -21,11 +14,16 @@ import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.messaging.support.MessageHeaderAccessor;
+import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
+
+import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static community.solace.spring.cloud.requestreply.model.SensorReading.BaseUnit.CELSIUS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 
@@ -128,7 +126,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException, RemoteErrorException {
+    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException, RemoteErrorException, InterruptedException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -171,7 +169,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException, RemoteErrorException {
+    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException, RemoteErrorException, InterruptedException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -211,6 +209,53 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
 
         resetMocks();
     }
+
+
+    @Test
+    void requestAndAwaitReplyToTopic_expectAdditionalHeaders_whenRequestReceived() throws TimeoutException, RemoteErrorException, InterruptedException {
+        String headerKeyBanane = "HeaderKeyBanane";
+
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        SensorReading expectedResponse = new SensorReading();
+        expectedResponse.setSensorID("livingroom");
+        AtomicReference<String> headerValue = new AtomicReference<>(null);
+
+        // Receive message and mock the response.
+        Mockito.when(streamBridge.send(
+                anyString(),
+                any(Message.class)
+        )).thenAnswer(invocation -> {
+            Message<SensorReading> msg = invocation.getArgument(1);
+            headerValue.set((String) msg.getHeaders().get(headerKeyBanane));
+            // Simply echo all request header back.
+            requestReplyService.onReplyReceived(
+                    MessageBuilder.createMessage(
+                            // RR-Service must not unpack payload
+                            expectedResponse,
+                            msg.getHeaders()
+                    )
+            );
+            return true;
+        });
+
+
+        SensorReading ignored = requestReplyService.requestAndAwaitReplyToTopic(
+                request,
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(100),
+                Map.of(headerKeyBanane, "HeaderValueBanane")
+        );
+        assertEquals(
+                "HeaderValueBanane",
+                headerValue.get()
+        );
+
+        resetMocks();
+    }
+
 
     @Test
     void requestAndAwaitReplyToTopic_expectException_whenErrorResponse() {
@@ -337,7 +382,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException, RemoteErrorException {
+    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException, RemoteErrorException, InterruptedException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -380,7 +425,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException, RemoteErrorException {
+    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException, RemoteErrorException, InterruptedException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -1014,7 +1059,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
                         SensorReading.class,
                         Duration.ofMillis(1)
                 );
-            } catch (TimeoutException | RemoteErrorException ignored) {
+            } catch (TimeoutException | RemoteErrorException | InterruptedException ignored) {
             }
         }
 
