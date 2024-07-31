@@ -128,7 +128,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException, RemoteErrorException {
+    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException, RemoteErrorException, InterruptedException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -171,7 +171,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException, RemoteErrorException {
+    void requestAndAwaitReplyToTopic_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException, RemoteErrorException, InterruptedException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -337,7 +337,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException, RemoteErrorException {
+    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnResponse_whenResponseSend() throws TimeoutException, RemoteErrorException, InterruptedException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -380,7 +380,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException, RemoteErrorException {
+    void requestAndAwaitReplyToBinding_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() throws TimeoutException, RemoteErrorException, InterruptedException {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
@@ -963,7 +963,7 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
                         SensorReading.class,
                         Duration.ofMillis(1)
                 );
-            } catch (TimeoutException | RemoteErrorException ignored) {
+            } catch (TimeoutException | RemoteErrorException |InterruptedException ignored) {
             }
         }
 
