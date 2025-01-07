@@ -291,9 +291,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 .getReplyTopic();
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Using binding:" + bindingName +
-                    " , destination:" + requestDestinationRaw +
-                    " and replyTopic:" + replyTopic);
+            LOG.debug("Using binding:{} , destination:{} and replyTopic:{}", bindingName, requestDestinationRaw, replyTopic);
         }
 
         if (!StringUtils.hasText(replyTopic) || Objects.equals(replyTopic, MISSING_DESTINATION)) {
