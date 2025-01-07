@@ -23,6 +23,7 @@
         <spring-cloud.version>2023.0.2</spring-cloud.version>
         <solace.jcsmp.version>10.24.0</solace.jcsmp.version>
         <commons-logging.version>1.2</commons-logging.version>
+        <dependency-check-maven.version>11.1.1</dependency-check-maven.version>
     </properties>
 
     <licenses>
