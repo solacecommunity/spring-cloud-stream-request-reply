@@ -57,7 +57,7 @@ public class ResponseHandler {
     }
 
     public void setTotalReplies(Long totalReplies) {
-        if (supportMultipleResponses && isFirstMessage && totalReplies > 1) {
+        if (supportMultipleResponses && isFirstMessage && totalReplies >= 1) {
             // Set total messages to expect when a multi message on a first message.
             expectedReplies.set(totalReplies);
             isFirstMessage = false;

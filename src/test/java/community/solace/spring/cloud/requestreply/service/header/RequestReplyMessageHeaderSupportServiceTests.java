@@ -230,7 +230,6 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
     void wrapFlux_singleResponses() {
         Function<Flux<Message<String>>, Flux<Message<String>>> supplier = supportService.wrapFlux((payloadIn, outSink) -> {
             outSink.next("first msg");
-            outSink.next("second msg");
             outSink.complete();
         },"requestReplyRepliesDemo-out-0");
 
@@ -268,28 +267,6 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                 })
                 .consumeNextWith(aMsg -> {
                     assertEquals(
-                            "second msg",
-                            aMsg.getPayload()
-                    );
-                    assertEquals(
-                            "my-correlationId-my",
-                            aMsg.getHeaders().get("correlationId")
-                    );
-                    assertEquals(
-                            "my-dest-my/p-arcs/the-event-after",
-                            aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
-                    );
-                    assertEquals(
-                            -1L,
-                            aMsg.getHeaders().get("totalReplies")
-                    );
-                    assertEquals(
-                            "1",
-                            aMsg.getHeaders().get("replyIndex")
-                    );
-                })
-                .consumeNextWith(aMsg -> {
-                    assertEquals(
                             "",
                             aMsg.getPayload()
                     );
@@ -302,12 +279,12 @@ class RequestReplyMessageHeaderSupportServiceTests extends AbstractRequestReplyI
                             aMsg.getHeaders().get(BinderHeaders.TARGET_DESTINATION)
                     );
                     assertEquals(
-                            2L,
+                            1L,
                             aMsg.getHeaders().get("totalReplies"),
                             "Total replies should be set at last msg"
                     );
                     assertEquals(
-                            "2",
+                            "1",
                             aMsg.getHeaders().get("replyIndex"),
                             "replyIndex should be equal to total replies at last msg"
                     );

@@ -809,7 +809,58 @@ class RequestReplyServiceTests extends AbstractRequestReplyIT {
     }
 
     @Test
-    void requestReplyToBindingReactive_expectMsgSendAndReturnUnpackedResponse_whenResponseSend() {
+    void requestReplyToBindingReactive_expectMsgSendAndReturnUnpackedResponse_whenSingleResponseWithUnknownSizeIsSend() {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        SensorReading expectedResponseA = new SensorReading(Ten_oClock, "livingroom", 22.0, CELSIUS);
+
+        // Receive message and mck the response.
+        Mockito.when(streamBridge.send(
+                anyString(),
+                any(Message.class)
+        )).thenAnswer(invocation -> {
+            Message<SensorReading> msg = invocation.getArgument(1);
+
+            requestReplyService.onReplyReceived(
+                    MessageBuilder
+                            .withPayload(expectedResponseA)
+                            .setHeaders(new MessageHeaderAccessor(msg))
+                            .setHeader("totalReplies", "-1")
+                            .setHeader("replyIndex", "0")
+                            .build()
+            );
+            requestReplyService.onReplyReceived(
+                    MessageBuilder
+                            .withPayload("")
+                            .setHeaders(new MessageHeaderAccessor(msg))
+                            .setHeader("totalReplies", "1")
+                            .setHeader("replyIndex", "1")
+                            .build()
+            );
+
+            return true;
+        });
+
+
+        Flux<SensorReading> flux = requestReplyService.requestReplyToBindingReactive(
+                request,
+                "requestReplyRepliesDemo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        );
+
+        StepVerifier
+                .create(flux)
+                .expectNext(expectedResponseA)
+                .expectComplete()
+                .verify(Duration.ofSeconds(10));
+
+        resetMocks();
+    }
+
+    @Test
+    void requestReplyToBindingReactive_expectMsgSendAndReturnUnpackedResponse_whenMultipleResponsesSend() {
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
 
