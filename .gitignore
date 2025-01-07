@@ -36,3 +36,4 @@ build/
 ### migration tools ###
 spring-boot-migrator.log
 /.rewrite-cache/
+/.flattened-pom.xml
