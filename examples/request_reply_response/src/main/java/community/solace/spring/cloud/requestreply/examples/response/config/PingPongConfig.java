@@ -1,17 +1,17 @@
 package community.solace.spring.cloud.requestreply.examples.response.config;
 
-import java.util.Random;
-import java.util.function.Function;
-
-import community.solace.spring.cloud.requestreply.service.header.RequestReplyMessageHeaderSupportService;
 import community.solace.spring.cloud.requestreply.examples.response.model.SensorReading;
 import community.solace.spring.cloud.requestreply.examples.response.model.SensorRequest;
+import community.solace.spring.cloud.requestreply.service.header.RequestReplyMessageHeaderSupportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
+
+import java.util.HashMap;
+import java.util.Random;
+import java.util.function.Function;
 
 @Slf4j
 @Configuration
@@ -20,19 +20,38 @@ public class PingPongConfig {
 
     @Bean
     public Function<Message<SensorRequest>, Message<SensorReading>> responseToRequestSolace(
-    		RequestReplyMessageHeaderSupportService headerSupport
-	) {
-        return headerSupport.wrap((readingIn) -> {
-            log.info(readingIn.toString());
+            RequestReplyMessageHeaderSupportService headerSupport
+    ) {
+        return headerSupport.wrapWithBindingName((readingIn) -> {
+                    log.info(readingIn.toString());
 
-            SensorReading reading = new SensorReading();
-            reading.setSensorID(readingIn.getSensorID());
-            reading.setTimestamp(readingIn.getTimestamp());
-            reading.setBaseUnit(SensorReading.BaseUnit.CELSIUS);
-            reading.setTemperature(Math.random() * 35d);
+                    SensorReading reading = new SensorReading();
+                    reading.setSensorID(readingIn.getSensorID());
+                    reading.setTimestamp(readingIn.getTimestamp());
+                    reading.setBaseUnit(SensorReading.BaseUnit.CELSIUS);
+                    reading.setTemperature(Math.random() * 35d);
 
-            return reading;
-        });
+                    return reading;
+                },
+                "responseToRequestSolace-out-0", new HashMap<>());
+    }
+
+    @Bean
+    public Function<Message<SensorRequest>, Message<SensorReading>> responseToLoggingSampleRequestSolace(
+            RequestReplyMessageHeaderSupportService headerSupport
+    ) {
+        return headerSupport.wrapWithBindingName((readingIn) -> {
+                    log.info(readingIn.toString());
+
+                    SensorReading reading = new SensorReading();
+                    reading.setSensorID(readingIn.getSensorID());
+                    reading.setTimestamp(readingIn.getTimestamp());
+                    reading.setBaseUnit(SensorReading.BaseUnit.CELSIUS);
+                    reading.setTemperature(Math.random() * 35d);
+
+                    return reading;
+                },
+                "responseToLoggingSampleRequestSolace-out-0", new HashMap<>());
     }
 
 //    @Bean

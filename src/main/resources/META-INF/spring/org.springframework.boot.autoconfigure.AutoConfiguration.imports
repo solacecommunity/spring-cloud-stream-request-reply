@@ -1,1 +1,3 @@
 community.solace.spring.cloud.requestreply.service.RequestReplyAutoConfiguration
+community.solace.spring.cloud.requestreply.config.logging.LoggerAutoConfiguration
+community.solace.spring.cloud.requestreply.config.messageinterceptor.MessageInterceptorAutoConfiguration

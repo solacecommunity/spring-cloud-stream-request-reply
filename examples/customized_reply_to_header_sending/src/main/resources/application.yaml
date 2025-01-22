@@ -1,0 +1,76 @@
+example:
+  customHeaderMappings:
+    - binding: customHeaderSimpleSending
+      replyHeaderName: customTestHeader
+spring:
+  jackson:
+    default-property-inclusion: NON_EMPTY
+  cloud:
+    config.failfast: true
+    function:
+      definition: customHeaderSimpleSending
+    stream:
+      requestreply:
+        bindingMapping:
+          - binding: customHeaderSimpleSending
+            replyTopic: requestReply/response/solace/{StagePlaceholder}/radiation/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
+            topicPatterns:
+              - last_value/radiation/solar/.*
+      bindings:
+        customHeaderSimpleSending-in-0:
+          destination: ${replyTopicWithWildcards|customHeaderSimpleSending|*}
+          binder: solace
+        customHeaderSimpleSending-out-0:
+          binder: solace
+
+      solace:
+        default:
+          producer:
+            prefix: sensor/
+        bindings:
+          # enforce short speaking queue names to not run into to long queue names that are not valid
+          customHeaderSimpleSending-in-0:
+            consumer:
+              queueNameExpression: "destination.trim().replaceAll('[*>]', '_')"
+
+      binders:
+        solace:
+          type: solace
+          environment:
+            solace:
+              java:
+                host: ${SOLACE_HOSTS:public.messaging.solace.cloud}
+                msgVpn: ${SOLACE_MSG_VPN:public}
+                clientUsername: ${SOLACE_USERNAME:public2}
+                clientPassword: ${SOLACE_PASSWORD:public2}
+                clientName: @project.artifactId@_${HOSTNAME:publicHost}_${random.uuid}
+                connectRetries: 5
+                reconnectRetries: 3
+                connectRetriesPerHost: 2
+                reconnectRetryWaitInMillis: 3000
+                apiProperties:
+                  SUB_ACK_WINDOW_SIZE: 255
+                  PUB_ACK_WINDOW_SIZE: 255
+                  PUB_ACK_TIME: 2000
+
+springdoc:
+  version: '@springdoc.version@'
+  swagger-ui:
+    path: /swagger-ui.html
+    url: /v3/api-docs
+    docExpansion: none
+    deepLinking: true
+    operations-sorter: alpha
+    tags-sorter: alpha
+
+server:
+  port: ${SCSE_REQUESTREPLY_SENDING_PORT:9011}
+
+logging:
+  level:
+    root: INFO
+    community:
+      solace:
+        spring:
+          cloud:
+            requestreply: TRACE

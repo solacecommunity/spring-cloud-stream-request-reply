@@ -1,6 +1,6 @@
 package community.solace.spring.cloud.requestreply.service;
 
-import community.solace.spring.cloud.requestreply.AbstractRequestReplyIT;
+import community.solace.spring.cloud.requestreply.AbstractRequestReplySimpleIT;
 import community.solace.spring.cloud.requestreply.service.header.RequestReplyMessageHeaderSupportService;
 import community.solace.spring.cloud.requestreply.service.header.parser.correlationid.MessageCorrelationIdParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.destination.MessageDestinationParser;
@@ -19,7 +19,7 @@ import static community.solace.spring.cloud.requestreply.service.header.parser.H
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-class HeaderParserTests extends AbstractRequestReplyIT {
+class HeaderParserTests extends AbstractRequestReplySimpleIT {
     @Autowired
     RequestReplyMessageHeaderSupportService headerSupport;
 

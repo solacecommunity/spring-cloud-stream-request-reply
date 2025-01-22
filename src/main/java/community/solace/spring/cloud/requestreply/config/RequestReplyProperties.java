@@ -1,22 +1,16 @@
 package community.solace.spring.cloud.requestreply.config;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.lang.Nullable;
+
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("spring.cloud.stream.requestreply")
 public class RequestReplyProperties {
     private final List<String> copyHeadersOnWrap = new ArrayList<>();
-    private List<BinderTopicMappings> bindingMapping = new ArrayList<>();
+    private List<BinderMappings> bindingMapping = new ArrayList<>();
     private Map<String, String> variableReplacements = new HashMap<>();
 
     public List<String> getCopyHeadersOnWrap() {
@@ -33,16 +27,19 @@ public class RequestReplyProperties {
 
     public Set<String> getBindingMappingNames() {
         return bindingMapping.stream()
-                .map(BinderTopicMappings::getBinding)
+                .map(BinderMappings::getBinding)
                 .collect(Collectors.toSet());
     }
 
-    public void setBindingMapping(List<BinderTopicMappings> bindingMapping) {
+    public void setBindingMapping(List<BinderMappings> bindingMapping) {
         this.bindingMapping = bindingMapping;
     }
 
-    public Optional<BinderTopicMappings> getBindingMapping(String binding) {
-        for (BinderTopicMappings mapping : bindingMapping) {
+    public Optional<BinderMappings> getBindingMapping(String binding) {
+        if (binding == null) {
+            return Optional.empty();
+        }
+        for (BinderMappings mapping : bindingMapping) {
             if (Objects.equals(mapping.getBinding(), binding)) {
                 return Optional.of(mapping);
             }
@@ -51,7 +48,7 @@ public class RequestReplyProperties {
     }
 
     public Optional<String> findMatchingBinder(String destination) {
-        for (BinderTopicMappings mapping : bindingMapping) {
+        for (BinderMappings mapping : bindingMapping) {
             for (Pattern topicPattern : mapping.getTopicPatterns()) {
                 if (topicPattern.matcher(destination).matches()) {
                     return Optional.of(mapping.getBinding());

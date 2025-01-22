@@ -1,0 +1,35 @@
+context.initializer.classes: community.solace.spring.cloud.requestreply.sampleapps.simple.configuration.RequestReplyTestConfiguration
+
+spring:
+  cloud:
+    function:
+      definition: requestReplyRepliesDemo
+    stream:
+      requestreply:
+        copyHeadersOnWrap: encoding,dummy
+        bindingMapping:
+          - binding: requestReplyRepliesDemo
+            replyTopic: requestReply/response/{StagePlaceholder}/itTests
+            topicPatterns:
+              - last_value/temperature/celsius/.*
+          - binding: uuidDemoA
+            replyTopic: uuidDemo/${replyTopicWithWildcards|uuid}
+          - binding: uuidDemoB
+            replyTopic: uuidDemo/${replyTopicWithWildcards|uuid}
+        variableReplacements:
+          StagePlaceholder: p-pineapple
+      bindings:
+        requestReplyRepliesDemo-in-0:
+          destination: ${replyTopicWithWildcards|requestReplyRepliesDemo|*}
+          contentType: "application/json"
+          binder: solace
+        requestReplyRepliesDemo-out-0:
+          destination: the/request/topic
+          binder: solace
+
+        uuidDemoA-in-0:
+          destination: ${replyTopicWithWildcards|uuidDemoA|*}
+          binder: solace
+        uuidDemoB-in-0:
+          destination: ${replyTopicWithWildcards|uuidDemoB|*}
+          binder: solace

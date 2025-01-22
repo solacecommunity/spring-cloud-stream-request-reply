@@ -3,7 +3,6 @@ package community.solace.spring.cloud.requestreply.service.header.parser;
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.MessageHeaderErrorMessageParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.replyto.MessageHeaderReplyToParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.totalreplies.MessageHeaderTotalRepliesParser;
-
 import org.springframework.core.annotation.Order;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.stereotype.Service;
@@ -11,7 +10,6 @@ import org.springframework.stereotype.Service;
 @Service
 @Order(40000)
 public class SpringHeaderParser implements MessageHeaderReplyToParser, MessageHeaderTotalRepliesParser, MessageHeaderErrorMessageParser {
-
     public final static String MULTI_TOTAL_REPLIES = "totalReplies";
     public final static String MULTI_REPLY_INDEX = "replyIndex";
     public final static String GROUPED_MESSAGES = "groupedMessages";

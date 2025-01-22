@@ -1,0 +1,66 @@
+example:
+  customHeaderMappings:
+    - binding: responseToRequestSolace-out-0
+      replyHeaderName: customTestHeader
+spring:
+  jackson:
+    default-property-inclusion: NON_EMPTY
+  cloud:
+    function:
+      definition: responseToRequestSolace
+    stream:
+      requestreply:
+        copyHeadersOnWrap:
+          - solace_replyTo
+          - customTestHeader
+        variableReplacements:
+          StagePlaceholder: ${ENVIRONMENT_ROLE:d}-${CLUSTER_NAME:pampelmuse}
+      default:
+        binder: ${spring.cloud.stream.defaultBinder:solace}
+        contentType: "application/json"
+      bindings:
+        responseToRequestSolace-in-0:
+          destination: last_value/radiation/*/*
+          # last_value/radiation/<unit>/<station>
+          binder: solace
+        responseToRequestSolace-out-0:
+          binder: solace
+
+      binders:
+        solace:
+          type: solace
+          environment:
+            solace:
+              java:
+                host: ${SOLACE_HOSTS:public.messaging.solace.cloud}
+                msgVpn: ${SOLACE_MSG_VPN:public}
+                clientUsername: ${SOLACE_USERNAME:public2}
+                clientPassword: ${SOLACE_PASSWORD:public2}
+                clientName: @project.artifactId@_${HOSTNAME:publicHost}_${random.uuid}
+                connectRetries: 5
+                reconnectRetries: 3
+                connectRetriesPerHost: 2
+                reconnectRetryWaitInMillis: 3000
+                apiProperties:
+                  SUB_ACK_WINDOW_SIZE: 255
+                  PUB_ACK_WINDOW_SIZE: 255
+                  PUB_ACK_TIME: 2000
+
+server:
+  port: ${SCSE_REQUESTREPLY_RESPONSE_PORT:9012}
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,bindings"
+
+logging:
+  level:
+    root: INFO
+    community:
+      solace:
+        spring:
+          cloud:
+            requestreply: TRACE
