@@ -30,10 +30,10 @@ To enable the request/reply functionality, please add the following section to y
 
 #### For requester
 
-If you want to send a request.  
+If you want to send a request.
 You have to define a topic pattern that matches the topic where you send your requests to,
 to define the binding that should be used for these requests.
-With the binding, you define the binder, contentType, ...  
+With the binding, you define the binder, contentType, ...
 and the response address where the replier should send the response to.
 
 `spring.cloud.stream.requestreply.bindingMapping[n].binding` have to:
@@ -66,7 +66,7 @@ spring:
         requestReplyRepliesDemo-in-0:
           destination: ${replyTopicWithWildcards|requestReplyRepliesDemo|*}
           contentType: "application/json"
-          binder: solace 
+          binder: solace
         requestReplyRepliesDemo-out-0:
           binder: solace
 ```
@@ -107,7 +107,7 @@ spring:
         requestReplyRepliesDemo-in-0:
           destination: ${replyTopicWithWildcards|requestReplyRepliesDemo|*}
           contentType: "application/json"
-          binder: solace 
+          binder: solace
         requestReplyRepliesDemo-out-0:
           destination: requestReply/request/last_value/temperature/celsius/livingroom,
           binder: solace
@@ -139,42 +139,42 @@ Introduction into [Flux/project reactor](https://www.baeldung.com/reactor-core)
 ##### How everything is related
 
 When using `requestAndAwaitReplyToBinding` / `requestReplyToTopic`
-The topic use in the code will be matched against all `spring.cloud.stream.requestreply.bindingMapping[].topicPatterns`,  
+The topic use in the code will be matched against all `spring.cloud.stream.requestreply.bindingMapping[].topicPatterns`,
 the fist hit will be used.
 ![topic to pattern](doc/requester_topic_to_pattern.png)
 
 The `spring.cloud.stream.requestreply.bindingMapping[].binding` of the matching section will be matched against
-`spring.cloud.stream.bindings[]` and always out-1 will be used.  
-This is required to let the requestReply service know what `binder`, `contentType`, ... is to use.  
-![binding to -out-0](doc/binding_to_out-0.png) 
+`spring.cloud.stream.bindings[]` and always out-1 will be used.
+This is required to let the requestReply service know what `binder`, `contentType`, ... is to use.
+![binding to -out-0](doc/binding_to_out-0.png)
 
-The `spring.cloud.stream.requestreply.bindingMapping[].replyTopic` of the matching section will be placed in the outbound 
-message to let the foreign service know where you expect the answer.  
-In general, you want to use here a topic that is unique.  
+The `spring.cloud.stream.requestreply.bindingMapping[].replyTopic` of the matching section will be placed in the outbound
+message to let the foreign service know where you expect the answer.
+In general, you want to use here a topic that is unique.
 Best practice is to put:
 - HOSTNAME into the topic to make debugging a little easier.
-- To ensure a unique inbox for your topic, include a UUID directly within it. 
+- To ensure a unique inbox for your topic, include a UUID directly within it.
   Avoid using `${random.uuid}` from Spring, as this would generate a new UUID each time it is called.
   Instead, use `${replyTopicWithWildcards|uuid}` to get a static UUID that is generated at the start of the process.
 
 ![reply topic sending](doc/reply_topic_sending.png)
 
-The requestReply service will iterate over `spring.cloud.stream.requestreply.bindingMapping` 
-And create a Bean to consume messages received on `-in-0.destination` using the given binder.  
+The requestReply service will iterate over `spring.cloud.stream.requestreply.bindingMapping`
+And create a Bean to consume messages received on `-in-0.destination` using the given binder.
 ![consuming topic](doc/consuming_topic.png)
 
-As soon as you use the `{StagePlaceholder}` feature, you cannot listen on:  
-`requestReply/response/solace/{StagePlaceholder}/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d`  
-because the foreign side will replace `{StagePlaceholder}` against `p-arcs`for example before responding.  
+As soon as you use the `{StagePlaceholder}` feature, you cannot listen on:
+`requestReply/response/solace/{StagePlaceholder}/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d`
+because the foreign side will replace `{StagePlaceholder}` against `p-pineapple`for example before responding.
 Therefore, you need to listen to:
-`requestReply/response/solace/*/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d`  
-This task will be done by: `${replyTopicWithWildcards|requestReplyRepliesDemo|*}`  
-It will take `spring.cloud.stream.requestreply.bindingMapping[].replyTopic` of the section, matching the first parameter.  
-And replace all `{someThing}` to the wildcard (second parameter) `*`  
+`requestReply/response/solace/*/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d`
+This task will be done by: `${replyTopicWithWildcards|requestReplyRepliesDemo|*}`
+It will take `spring.cloud.stream.requestreply.bindingMapping[].replyTopic` of the section, matching the first parameter.
+And replace all `{someThing}` to the wildcard (second parameter) `*`
 ![reply topic replace wildcard](doc/replyTopicWithWildcards.png)
 
 #### For replier
-In general, if you want to respond to a message, you do not need this library. 
+In general, if you want to respond to a message, you do not need this library.
 Instead,
 you can send the response to the topic specified in the reply-to header
 and replicate all headers from the request to the response.
@@ -182,12 +182,12 @@ and replicate all headers from the request to the response.
 
 However, the methods `RequestReplyMessageHeaderSupportService.wrap`, `RequestReplyMessageHeaderSupportService.wrapList`
 and `RequestReplyMessageHeaderSupportService.wrapFlux`
-from this library can support in creating the response with properly setting the message headers, 
+from this library can support in creating the response with properly setting the message headers,
 as well as with substituting variables in dynamic topics.
 
 By default, the wrapping function will set the correlationId and reply destination headers of the message.
-In the case of multi responses, the header for totalReplies and replyIndex will be set as well. 
-Additional headers can be configured to be copied from the request by 
+In the case of multi responses, the header for totalReplies and replyIndex will be set as well.
+Additional headers can be configured to be copied from the request by
 setting `spring.cloud.stream.requestReply.copyHeadersOnWrap` accordingly, e.g.:
 
 ```properties
@@ -196,7 +196,7 @@ spring.cloud.stream.requestReply.copyHeadersOnWrap=encoding,yetAnotherHeader
 
 The actual Wrapping can be used as in the example below:
 
-##### single response 
+##### single response
 ```java
 public class PingPongConfig {
   @Bean
@@ -225,7 +225,7 @@ public class PingPongConfig {
       List<SensorReading> responses = new ArrayList<>();
       responses.add(new SensorReading());
       // ....
-  
+
       return responses;
     }, "responseMultiToRequestKnownSizeSolace-out-0");
   }
@@ -284,7 +284,7 @@ public class PingPongConfig {
   private final Validator validator;
 
   private final ObjectMapper objectMapper;
-    
+
   @Bean
   public Function<Message<String>, Message<SensorReading>> responseToRequest(
           RequestReplyMessageHeaderSupportService headerSupport
@@ -294,8 +294,8 @@ public class PingPongConfig {
       final DataBinder db = new DataBinder(request);
       db.setValidator(validator);
       db.validate();
-      
-        
+
+
       SensorReading response = new SensorReading();
       response.setFoo(1337);
 
@@ -331,6 +331,53 @@ spring:
 
 Those `variableReplacements` will be applied to request and reply topics.
 
+##### Configure custom logging
+In case the standard logging is not matching your expectations,
+you can define your own logging spring bean to customize logging behavior.
+
+```java
+@Configuration
+public class CustomizedLoggerConfig {
+
+    @Bean
+    public RequestReplyLogger requestReplyLogger() {
+        return new CustomizedLogger();
+    }
+}
+```
+Example logger interface implementation:
+```java
+public class CustomizedLogger implements RequestReplyLogger {
+
+    @Override
+    public void logRequest(Logger logger, Level suggestedLevel, String suggestedLogMessage, Message<?> message) {
+        logger.atLevel(Level.DEBUG).log("<<< {} {}", message.getPayload(), message.getHeaders());
+    }
+
+    @Override
+    public void logReply(Logger logger, Level suggestedLevel, String suggestedLogMessage, long remainingReplies, Message<?> message) {
+        String payloadString = new String((byte[])message.getPayload());
+        logger.atLevel(Level.DEBUG).log(">>> {} {} remaining replies: {}", payloadString, message.getHeaders(), remainingReplies);
+    }
+
+    @Override
+    public void log(Logger logger, Level suggestedLevel, String suggestedLogMessage, Object... formatArgs) {
+        logger.atLevel(suggestedLevel).log(suggestedLogMessage, formatArgs);
+    }
+}
+```
+
+You find an entire example-application for the purpose of showing how to configure this under examples/customized_logging.
+
+##### Configure custom message interception
+If you need to modify a request-message before it is sent by the request side, you can define an interceptor bean
+for the interface "RequestSendingInterceptor".
+You can find an entire example tho this under "examples/customized_reply_to_header_sending".
+
+On the responder side, if you need to change a message while it is being wrapped,
+you can define an interceptor bean for the interface "ReplyWrappingInterceptor".
+You can find an entire example tho this under "examples/customized_reply_to_header_response".
+
 ### API
 
 #### `RequestReplyService`
@@ -338,7 +385,7 @@ Those `variableReplacements` will be applied to request and reply topics.
 The request/reply functionality
 provided by this starter can be used by autowiring the `RequestReplyService` which offers the following methods:
 
-#### for single response 
+#### for single response
 
 If you expect exactly one response.
 
@@ -352,7 +399,7 @@ If you expect exactly one response.
   waits for the response, and maps it to the provided class as the return value.
   If a `-out-0.destination` is configured, it will be ignored.
 
-- The method `CompletableFuture<A> requestReplyToTopic(Q request, String requestDestination, Class<A> expectedClass, Duration timeoutPeriod)` 
+- The method `CompletableFuture<A> requestReplyToTopic(Q request, String requestDestination, Class<A> expectedClass, Duration timeoutPeriod)`
   sends the specified request to the designated request destination.
   It returns a future that maps the received response to the provided class.
   Use this method only in rare edge cases
@@ -368,7 +415,7 @@ If you expect exactly one response.
 
 If you expect zero to N responses.
 
-- The method `Flux<A> requestReplyToTopicReactive(Q request, String requestDestination, Class<A> expectedClass, Duration timeoutPeriod)` 
+- The method `Flux<A> requestReplyToTopicReactive(Q request, String requestDestination, Class<A> expectedClass, Duration timeoutPeriod)`
   sends the specified request to the designated request destination.
   It returns a reactive stream that maps the received responses to the provided class.
   Use this method when you expect multiple responses for a single question.
@@ -433,7 +480,7 @@ A blocking request reply where you receive a list of answers.
 
 ###### receive many answers
 
-If your request is a `org.springframework.messaging.Message`, you can decide if every response should be 
+If your request is a `org.springframework.messaging.Message`, you can decide if every response should be
 transported as a single message or if a couple of messages should be grouped together.
 
 Message grouping can be enabled via:
@@ -442,7 +489,7 @@ Message grouping can be enabled via:
 In case you request something else, will the request/reply lib add `GROUPED_MESSAGES=true` automatically.
 
 Until you require a separate header for each reply,
-it is recommended to use grouped messages instead of sending individual messages.  
+it is recommended to use grouped messages instead of sending individual messages.
 Grouped messages improve reply speed by reducing the message header overhead and conserving broker resources.
 
 Messages will be grouped together until one of the following conditions is met:
@@ -471,7 +518,7 @@ For example:
 ## Extensibility
 
 The Request/Reply Spring Boot Starter has been designed
-to work with both the [Solace Binder](https://github.com/SolaceProducts/solace-spring-cloud) and the [TestSupportBinder](https://github.com/spring-cloud/spring-cloud-stream/blob/main/spring-cloud-stream-test-support/src/main/java/org/springframework/cloud/stream/test/binder/TestSupportBinder.java), 
+to work with both the [Solace Binder](https://github.com/SolaceProducts/solace-spring-cloud) and the [TestSupportBinder](https://github.com/spring-cloud/spring-cloud-stream/blob/main/spring-cloud-stream-test-support/src/main/java/org/springframework/cloud/stream/test/binder/TestSupportBinder.java),
 but can be extended to work with other binders as well.
 
 For that, the following beans must be provided to be able to adapt to another binder.
@@ -511,7 +558,6 @@ The starter also includes the following message parser implementations:
   implements `MessageHeaderCorrelationIdParser` according to the HTTP header standard
 
 
-
 ## Known issues and Open Points
 
 ### Statefulness
@@ -532,7 +578,7 @@ Tested with:
 
 | SpringBoot 	 | SpringCloudStream 	  |
 |--------------|----------------------|
-| 2.6.6      	 | 2021.0.1          	  | 
+| 2.6.6      	 | 2021.0.1          	  |
 | 2.6.6      	 | 2021.0.3           	 |
 | 3.2.5        | 2023.0.1           	 |
 

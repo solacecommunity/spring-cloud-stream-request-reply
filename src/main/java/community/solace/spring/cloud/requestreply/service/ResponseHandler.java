@@ -1,9 +1,11 @@
 package community.solace.spring.cloud.requestreply.service;
 
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.RemoteErrorException;
+import community.solace.spring.cloud.requestreply.service.logging.RequestReplyLogger;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 import org.springframework.messaging.Message;
 import org.springframework.util.StringUtils;
 
@@ -28,13 +30,16 @@ public class ResponseHandler {
     private boolean isFirstMessage = true;
     private String errorMessage;
 
-    public ResponseHandler(Consumer<Message<?>> responseMessageConsumer, boolean supportMultipleResponses, Timer timer) {
+    private final RequestReplyLogger requestReplyLogger;
+
+    public ResponseHandler(Consumer<Message<?>> responseMessageConsumer, boolean supportMultipleResponses, Timer timer, RequestReplyLogger requestReplyLogger) {
         this.countDownLatch = new CountDownLatch(1);
         this.responseMessageConsumer = responseMessageConsumer;
         this.supportMultipleResponses = supportMultipleResponses;
 
         this.requestTime = Instant.now();
         this.timer = timer;
+        this.requestReplyLogger = requestReplyLogger;
     }
 
     public void receive(Message<?> message) {
@@ -46,7 +51,7 @@ public class ResponseHandler {
             finished();
         }
 
-        LOG.debug("received response(remaining={}) {}", remainingReplies, message);
+        requestReplyLogger.logReply(LOG, Level.DEBUG, "received response(remaining={}) {}", remainingReplies, message);
     }
 
     public void await() throws RemoteErrorException, InterruptedException {

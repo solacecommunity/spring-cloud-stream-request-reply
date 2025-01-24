@@ -12,9 +12,11 @@ spring:
             replyTopic: requestReply/response/solace/{StagePlaceholder}/dynamic/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
             topicPatterns:
               - last_value/temperature/celsius/.*
+            replyHeaderName: customTestHeader
 
           - binding: requestReplyRepliesDemoSolaceStatic
             replyTopic: requestReply/response/solace/{StagePlaceholder}/static/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
+            replyHeaderName: customTestHeader
 
           - binding: requestMultiReplySampleSolaceKnownSize
             replyTopic: requestReply/response/solace/{StagePlaceholder}/multi_known/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
@@ -76,11 +78,11 @@ spring:
           environment:
             solace:
               java:
-                host: ${SOLACE_HOSTS}
-                msgVpn: ${SOLACE_MSG_VPN}
-                clientUsername: ${SOLACE_USERNAME}
-                clientPassword: ${SOLACE_PASSWORD}
-                clientName: @project.artifactId@_${HOSTNAME}_${random.uuid}
+                host: ${SOLACE_HOSTS:public.messaging.solace.cloud}
+                msgVpn: ${SOLACE_MSG_VPN:public}
+                clientUsername: ${SOLACE_USERNAME:public2}
+                clientPassword: ${SOLACE_PASSWORD:public2}
+                clientName: @project.artifactId@_${HOSTNAME:publicHost}_${random.uuid}
                 connectRetries: 5
                 reconnectRetries: 3
                 connectRetriesPerHost: 2
@@ -102,3 +104,7 @@ springdoc:
 
 server:
   port: ${SCSE_REQUESTREPLY_SENDING_PORT:9011}
+
+logging:
+  level:
+    root: INFO

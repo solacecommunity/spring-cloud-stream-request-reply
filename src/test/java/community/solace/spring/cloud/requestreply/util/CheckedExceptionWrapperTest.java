@@ -1,20 +1,15 @@
-/*
- * Copyright © Schweizerische Bundesbahnen SBB, 2021.
- */
-
 package community.solace.spring.cloud.requestreply.util;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
-
-import java.util.function.Function;
-import java.util.function.Supplier;
-
+import community.solace.spring.cloud.requestreply.exception.RequestReplyException;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import community.solace.spring.cloud.requestreply.exception.RequestReplyException;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 class CheckedExceptionWrapperTest {
     private static final Logger LOG = LoggerFactory.getLogger(CheckedExceptionWrapperTest.class);

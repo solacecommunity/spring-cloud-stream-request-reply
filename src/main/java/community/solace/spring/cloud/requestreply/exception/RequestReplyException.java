@@ -1,7 +1,3 @@
-/*
- * Copyright © Schweizerische Bundesbahnen SBB, 2021.
- */
-
 package community.solace.spring.cloud.requestreply.exception;
 
 public class RequestReplyException extends RuntimeException {

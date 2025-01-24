@@ -7,6 +7,8 @@ import community.solace.spring.cloud.requestreply.exception.RequestReplyExceptio
 import community.solace.spring.cloud.requestreply.service.header.RequestReplyMessageHeaderSupportService;
 import community.solace.spring.cloud.requestreply.service.header.parser.SpringHeaderParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.RemoteErrorException;
+import community.solace.spring.cloud.requestreply.service.logging.RequestReplyLogger;
+import community.solace.spring.cloud.requestreply.service.messageinterceptor.RequestSendingInterceptor;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import jakarta.validation.Valid;
@@ -36,6 +38,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import org.slf4j.event.Level;
 
 import static community.solace.spring.cloud.requestreply.util.CheckedExceptionWrapper.throwingUnchecked;
 
@@ -70,6 +73,12 @@ public class RequestReplyServiceImpl implements RequestReplyService {
 
     @Autowired(required = false)
     private MeterRegistry registry;
+
+    @Autowired
+    private RequestReplyLogger requestReplyLogger;
+
+    @Autowired
+    private RequestSendingInterceptor requestSendingInterceptor;
 
     private final Map<String, Timer> meterTime = new ConcurrentHashMap<>();
 
@@ -293,7 +302,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
         }
         if (!StringUtils.hasText(correlationId)) {
             correlationId = UUID.randomUUID().toString();
-            LOG.debug("generated correlation Id {} for request directed to {} with content {}", correlationId, requestDestination, request);
+            requestReplyLogger.log(LOG, Level.DEBUG, "generated correlation Id {} for request directed to {} with content {}", correlationId, requestDestination, request);
         }
 
         final String requestDestinationRaw = requestReplyProperties.replaceVariablesWithWildcard(requestDestination);
@@ -303,9 +312,10 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                         + "Please check that there is a matching: spring.cloud.stream.requestreply.bindingMapping[].binding"))
                 .getReplyTopic();
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Using binding:{} , destination:{} and replyTopic:{}", bindingName, requestDestinationRaw, replyTopic);
-        }
+        requestReplyLogger.log(LOG, Level.DEBUG, "Using binding:{} , destination:{} and replyTopic:{}",
+                bindingName,
+                requestDestinationRaw,
+                replyTopic);
 
         if (!StringUtils.hasText(replyTopic) || Objects.equals(replyTopic, MISSING_DESTINATION)) {
             throw new IllegalArgumentException("Missing configuration option: spring.cloud.stream.requestreply[].replyTopic where binding: " + bindingName);
@@ -326,12 +336,16 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 .setCorrelationId(correlationId)
                 .setHeader(BinderHeaders.TARGET_DESTINATION, requestDestinationRaw)
                 .setHeader(MessageHeaders.REPLY_CHANNEL, replyTopic);
+
         if (additionalHeaders != null) {
             for (var header : additionalHeaders.entrySet()) {
                 messageBuilder.setHeader(header.getKey(), header.getValue());
             }
         }
-        return postRequest(bindingName + "-out-0", correlationId, messageBuilder.build(), responseConsumer, timeoutPeriod, multipleResponses);
+
+        Message<?> toSend = requestSendingInterceptor.interceptRequestSendingMessage(messageBuilder.build(), bindingName);
+
+        return postRequest(bindingName + "-out-0", correlationId, toSend, responseConsumer, timeoutPeriod, multipleResponses);
     }
 
     private CompletableFuture<Void> postRequest(
@@ -343,7 +357,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             boolean multipleResponses
     ) {
         Runnable requestRunnable = () -> {
-            LOG.trace("Sending message {}", message);
+            requestReplyLogger.logRequest(LOG, Level.TRACE, "Sending message {}", message);
             streamBridge.send(bindingName, message);
         };
 
@@ -358,7 +372,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             @NotNull @Valid Duration timeoutPeriod,
             boolean multipleResponses
     ) {
-        ResponseHandler responseHandler = new ResponseHandler(responseConsumer, multipleResponses, getMeterTime(bindingName));
+        ResponseHandler responseHandler = new ResponseHandler(responseConsumer, multipleResponses, getMeterTime(bindingName), requestReplyLogger);
         ResponseHandler previous = PENDING_RESPONSES.putIfAbsent(correlationId, responseHandler);
         if (previous != null) {
             throw new IllegalArgumentException("response for correlation ID " + correlationId + " is already awaited");
@@ -366,11 +380,11 @@ public class RequestReplyServiceImpl implements RequestReplyService {
 
         Runnable runnable = throwingUnchecked(() -> {
             try {
-                LOG.trace("Querying correlationId {}", correlationId);
+                requestReplyLogger.log(LOG, Level.TRACE, "Querying correlationId {}", correlationId);
                 requestRunnable.run();
                 responseHandler.await();
             } finally {
-                LOG.trace("Disregarding correlationId {}", correlationId);
+                requestReplyLogger.log(LOG, Level.TRACE, "Disregarding correlationId {}", correlationId);
                 PENDING_RESPONSES.remove(correlationId);
             }
         });
@@ -388,7 +402,11 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 })
                 .whenCompleteAsync((reply, error) -> {
                     if (error != null) {
-                        LOG.error("Failed to collect response for correlationId {}: {}: {}", correlationId, error.getClass(),
+                        requestReplyLogger.log(LOG,
+                                Level.ERROR,
+                                "Failed to collect response for correlationId {}: {}: {}",
+                                correlationId,
+                                error.getClass(),
                                 error.getMessage());
                     }
                 }, REQUEST_REPLY_EXECUTOR);
@@ -419,7 +437,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
         String correlationId = messageHeaderSupportService.getCorrelationId(message);
 
         if (correlationId == null) {
-            LOG.error("Received unexpected message, without correlation id: {}", message);
+            requestReplyLogger.log(LOG, Level.ERROR, "Received unexpected message, without correlation id: {}", message);
             return;
         }
 
@@ -428,7 +446,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
 
         ResponseHandler handler = PENDING_RESPONSES.get(correlationId);
         if (handler == null) {
-            LOG.info("Received unexpected message or maybe too late response: {}", message);
+            requestReplyLogger.log(LOG, Level.INFO, "Received unexpected message or maybe too late response: {}", message);
         } else {
             if (totalReplies != null) {
                 if (totalReplies == UNKNOWN_SIZE) {

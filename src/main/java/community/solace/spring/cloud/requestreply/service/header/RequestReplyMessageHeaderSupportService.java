@@ -8,6 +8,7 @@ import community.solace.spring.cloud.requestreply.service.header.parser.destinat
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.MessageErrorMessageParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.replyto.MessageReplyToParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.totalreplies.MessageTotalRepliesParser;
+import community.solace.spring.cloud.requestreply.service.messageinterceptor.ReplyWrappingInterceptor;
 import community.solace.spring.cloud.requestreply.util.MessageChunker;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
@@ -29,10 +30,7 @@ import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -64,6 +62,8 @@ public class RequestReplyMessageHeaderSupportService {
     private MessageConverter messageConverter;
     @Autowired
     private BindingServiceProperties bindingServiceProperties;
+    @Autowired
+    private ReplyWrappingInterceptor replyWrappingInterceptor;
 
     public @Nullable
     String getCorrelationId(Message<?> message) {
@@ -131,8 +131,9 @@ public class RequestReplyMessageHeaderSupportService {
      * @return message with the payload function applied to the incoming message and the message headers prepared for answering
      */
     @SafeVarargs
-    public final <Q, A, T extends Function<Q, A>, E extends Throwable> Function<Message<Q>, Message<A>> wrap(T payloadFunction, Class<E>... applicationExceptions) {
-        return wrap(payloadFunction, null, applicationExceptions);
+    public final <Q, A, T extends Function<Q, A>, E extends Throwable> Function<Message<Q>, Message<A>> wrap(T payloadFunction,
+                                                                                                             Class<E>... applicationExceptions) {
+        return wrapWithBindingName(payloadFunction, (String) null, new HashMap<>(), applicationExceptions);
     }
 
     /**
@@ -142,12 +143,16 @@ public class RequestReplyMessageHeaderSupportService {
      * @param <Q>                   incoming message payload type
      * @param <A>                   outgoing message payload type
      * @param payloadFunction       mapping function from incoming to outgoing payload
+     * @param bindingName           the name of the output binding. Required to have reply header configurable in binding settings, otherwise you may pass null.
      * @param additionalHeaders     additional headers to be added to the response message
      * @param applicationExceptions A list of exceptions that will return the error to the requestor
      * @return message with the payload function applied to the incoming message and the message headers prepared for answering
      */
     @SafeVarargs
-    public final <Q, A, T extends Function<Q, A>, E extends Throwable> Function<Message<Q>, Message<A>> wrap(T payloadFunction, Map<String, Object> additionalHeaders, Class<E>... applicationExceptions) {
+    public final <Q, A, T extends Function<Q, A>, E extends Throwable> Function<Message<Q>, Message<A>> wrapWithBindingName(T payloadFunction,
+                                                                                                                            String bindingName,
+                                                                                                                            Map<String, Object> additionalHeaders,
+                                                                                                                            Class<E>... applicationExceptions) {
         return request -> {
             try {
                 MessageBuilder<A> mb = MessageBuilder.withPayload(payloadFunction.apply(request.getPayload()));
@@ -157,12 +162,12 @@ public class RequestReplyMessageHeaderSupportService {
                         mb.setHeader(header.getKey(), header.getValue());
                     }
                 }
-                return mb.build();
+                return this.replyWrappingInterceptor.interceptReplyWrappingPayloadMessage(mb.build(), bindingName);
             } catch (Exception e) {
                 if (applicationExceptions != null) {
                     for (Class<E> applicationException : applicationExceptions) {
                         if (applicationException.isInstance(e)) {
-                            return errorResponse(request, e);
+                            return errorResponse(request, e, bindingName);
                         }
                     }
                 }
@@ -189,20 +194,20 @@ public class RequestReplyMessageHeaderSupportService {
                 List<A> rawResponses = payloadFunction.apply(request.getPayload());
 
                 if (CollectionUtils.isEmpty(rawResponses)) {
-                    return List.of(emptyMsg(request, 0, 0));
+                    return interceptResponses(bindingName, List.of(emptyMsg(request, 0, 0, bindingName)));
                 } else {
 
                     if (Boolean.TRUE.equals(request.getHeaders().get(SpringHeaderParser.GROUPED_MESSAGES)) && StringUtils.hasText(bindingName)) {
-                        return wrapListGroupedResponses(request, rawResponses, getContentType(bindingName));
+                        return interceptResponses(bindingName, wrapListGroupedResponses(request, rawResponses, getContentType(bindingName), bindingName));
                     } else {
-                        return wrapListSingleResponses(request, rawResponses);
+                        return wrapListSingleResponses(request, rawResponses, bindingName);
                     }
                 }
             } catch (Exception e) {
                 if (applicationExceptions != null) {
                     for (Class<E> applicationException : applicationExceptions) {
                         if (applicationException.isInstance(e)) {
-                            return List.of(errorResponse(request, e));
+                            return List.of(errorResponse(request, e, bindingName));
                         }
                     }
                 }
@@ -211,18 +216,23 @@ public class RequestReplyMessageHeaderSupportService {
         };
     }
 
-    private <A, Q> List<Message<A>> wrapListSingleResponses(Message<Q> request, List<A> rawResponses) {
+    private <A> List<Message<A>> interceptResponses(String bindingName, List<Message<A>> messages) {
+        return messages.stream().map(message -> replyWrappingInterceptor.interceptReplyWrappingPayloadMessage(message, bindingName))
+                .toList();
+    }
+
+    private <A, Q> List<Message<A>> wrapListSingleResponses(Message<Q> request, List<A> rawResponses, String bindingName) {
         List<Message<A>> response = new ArrayList<>();
         for (int i = 0; i < rawResponses.size(); i++) {
             MessageBuilder<A> mb = MessageBuilder.withPayload(rawResponses.get(i));
             transferAndAdoptHeaders(request, mb, rawResponses.size(), "" + i);
-            response.add(mb.build());
+            response.add(replyWrappingInterceptor.interceptReplyWrappingPayloadMessage(mb.build(), bindingName));
         }
         return response;
     }
 
     @SuppressWarnings("unchecked")
-    private <A, Q> List<Message<A>> wrapListGroupedResponses(Message<Q> request, List<A> rawResponses, MimeType outputContentType) {
+    private <A, Q> List<Message<A>> wrapListGroupedResponses(Message<Q> request, List<A> rawResponses, MimeType outputContentType, String bindingName) {
         List<Message<byte[]>> byteMessages = new ArrayList<>();
         for (int i = 0; i < rawResponses.size(); i++) {
             Message<?> responseAsByteMsg = messageConverter.convertMessageToBytesIfNecessary(
@@ -233,8 +243,8 @@ public class RequestReplyMessageHeaderSupportService {
             );
 
             if (!(responseAsByteMsg.getPayload() instanceof byte[])) {
-                // A messages were not possible to be converted to byte[].
-                return wrapListSingleResponses(request, rawResponses);
+                // A message could not be converted to byte[]:
+                return wrapListSingleResponses(request, rawResponses, bindingName);
             }
 
             byteMessages.add((Message<byte[]>) responseAsByteMsg);
@@ -247,7 +257,7 @@ public class RequestReplyMessageHeaderSupportService {
 
             String indexRange = index.get() + "-" + (index.addAndGet(oneMbChunk.getValue()) - 1);
             transferAndAdoptHeaders(request, mb, byteMessages.size(), indexRange);
-            response.add(mb.build());
+            response.add(this.replyWrappingInterceptor.interceptReplyWrappingPayloadMessage(mb.build(), bindingName));
         }
 
         return response;
@@ -283,9 +293,9 @@ public class RequestReplyMessageHeaderSupportService {
                         Flux<A> responses = Flux.create(fluxSink -> payloadFunction.accept(request.getPayload(), fluxSink));
 
                         if (Boolean.TRUE.equals(request.getHeaders().get(SpringHeaderParser.GROUPED_MESSAGES)) && StringUtils.hasText(bindingName)) {
-                            return wrapFluxGroupedResponses(request, responses, getContentType(bindingName), groupTimeout);
+                            return wrapFluxGroupedResponses(request, responses, getContentType(bindingName), groupTimeout, bindingName);
                         } else {
-                            return wrapFluxSingleResponses(request, responses);
+                            return wrapFluxSingleResponses(request, responses, bindingName);
                         }
                     } catch (Exception e) {
                         return Flux.error(e);
@@ -293,20 +303,20 @@ public class RequestReplyMessageHeaderSupportService {
                 });
     }
 
-    private <Q, A> Flux<Message<A>> wrapFluxSingleResponses(Message<Q> request, Flux<A> responses) {
+    private <Q, A> Flux<Message<A>> wrapFluxSingleResponses(Message<Q> request, Flux<A> responses, String bindingName) {
         AtomicLong index = new AtomicLong(0);
         return responses
                 .map(payload -> {
                     MessageBuilder<A> mb = MessageBuilder.withPayload(payload);
                     transferAndAdoptHeaders(request, mb, -1, "" + index.getAndIncrement());
-                    return mb.build();
+                    return this.replyWrappingInterceptor.interceptReplyWrappingPayloadMessage(mb.build(), bindingName);
                 })
-                .concatWith(Mono.fromSupplier(() -> emptyMsg(request, index.get(), index.get()))) // Append the finish message
-                .onErrorResume(err -> Mono.just(errorResponse(request, err)));
+                .concatWith(Mono.fromSupplier(() -> emptyMsg(request, index.get(), index.get(), bindingName))) // Append the finish message
+                .onErrorResume(err -> Mono.just(errorResponse(request, err, bindingName)));
     }
 
     @SuppressWarnings("unchecked")
-    private <Q, A> Flux<Message<A>> wrapFluxGroupedResponses(Message<Q> request, Flux<A> responses, MimeType outputContentType, Duration groupTimeout) {
+    private <Q, A> Flux<Message<A>> wrapFluxGroupedResponses(Message<Q> request, Flux<A> responses, MimeType outputContentType, Duration groupTimeout, String bindingName) {
         AtomicLong index = new AtomicLong(0);
         return responses
                 .map(payload -> messageConverter.convertMessageToBytesIfNecessary(
@@ -322,10 +332,10 @@ public class RequestReplyMessageHeaderSupportService {
 
                     String indexRange = index.get() + "-" + (index.addAndGet(oneMbChunk.getValue()) - 1);
                     transferAndAdoptHeaders(request, mb, -1, indexRange);
-                    return mb.build();
+                    return replyWrappingInterceptor.interceptReplyWrappingPayloadMessage(mb.build(), bindingName);
                 })
-                .concatWith(Mono.fromSupplier(() -> emptyMsg(request, index.get(), index.get()))) // Append the finish message
-                .onErrorResume(err -> Mono.just(errorResponse(request, err)));
+                .concatWith(Mono.fromSupplier(() -> emptyMsg(request, index.get(), index.get(), bindingName))) // Append the finish message
+                .onErrorResume(err -> Mono.just(errorResponse(request, err, bindingName)));
     }
 
     private MimeType getContentType(String bindingName) {
@@ -334,19 +344,19 @@ public class RequestReplyMessageHeaderSupportService {
     }
 
     @SuppressWarnings("unchecked")
-    private <Q, A> Message<A> emptyMsg(Message<Q> request, long totalReplies, long replyIndex) {
+    private <Q, A> Message<A> emptyMsg(Message<Q> request, long totalReplies, long replyIndex, String bindingName) {
         MessageBuilder<String> mb = MessageBuilder.withPayload("");
         transferAndAdoptHeaders(request, mb, totalReplies, "" + replyIndex);
-        return (Message<A>) mb.build();
+        return (Message<A>) this.replyWrappingInterceptor.interceptReplyWrappingFinishingEmptyMessage(mb.build(), bindingName);
     }
 
     @NotNull
     @SuppressWarnings("unchecked")
-    private <Q, A> Message<A> errorResponse(Message<Q> request, Throwable e) {
+    private <Q, A> Message<A> errorResponse(Message<Q> request, Throwable e, String bindingName) {
         MessageBuilder<String> mb = MessageBuilder.withPayload("");
         transferAndAdoptHeaders(request, mb, 0, "0");
         mb.setHeader(SpringHeaderParser.ERROR_MESSAGE, e.getMessage());
-        return (Message<A>) mb.build();
+        return (Message<A>) this.replyWrappingInterceptor.interceptReplyWrappingErrorMessage(mb.build(), bindingName);
     }
 
     private <Q, A> void transferAndAdoptHeaders(Message<Q> request, MessageBuilder<A> mb, long totalReplies, String replyIndex) {
@@ -356,7 +366,8 @@ public class RequestReplyMessageHeaderSupportService {
         mb.setHeader(SpringHeaderParser.MULTI_REPLY_INDEX, replyIndex);
     }
 
-    private <Q, A> void transferAndAdoptHeaders(Message<Q> request, MessageBuilder<A> mb) {
+    private <Q, A> void transferAndAdoptHeaders(Message<Q> request,
+                                                MessageBuilder<A> mb) {
         String correlationId = getCorrelationId(request);
         if (correlationId != null) {
             mb.setCorrelationId(correlationId);

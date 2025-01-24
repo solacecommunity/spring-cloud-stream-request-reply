@@ -1,7 +1,6 @@
 package community.solace.spring.cloud.requestreply.service.header.parser;
 
 import org.junit.jupiter.api.Test;
-
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
 
