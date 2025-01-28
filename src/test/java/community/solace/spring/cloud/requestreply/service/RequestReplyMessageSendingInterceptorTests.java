@@ -1,5 +1,8 @@
 package community.solace.spring.cloud.requestreply.service;
 
+import java.time.Duration;
+import java.util.concurrent.TimeoutException;
+
 import community.solace.spring.cloud.requestreply.AbstractRequestReplyLoggingIT;
 import community.solace.spring.cloud.requestreply.model.SensorReading;
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.RemoteErrorException;
@@ -9,38 +12,38 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mockito;
+import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.messaging.support.MessageHeaderAccessor;
-import reactor.core.publisher.Flux;
-import reactor.test.StepVerifier;
-
-import java.time.Duration;
-import java.util.concurrent.TimeoutException;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static community.solace.spring.cloud.requestreply.model.SensorReading.BaseUnit.CELSIUS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 class RequestReplyMessageSendingInterceptorTests extends AbstractRequestReplyLoggingIT {
 
     @Captor
     ArgumentCaptor<Message<?>> messageCaptor;
-    @MockBean
+    @MockitoBean
     private StreamBridge streamBridge;
     @Autowired
     private RequestReplyServiceImpl requestReplyService;
-    @MockBean
+    @MockitoBean
     private RequestSendingInterceptor requestSendingInterceptor;
 
     @BeforeEach
     void setUpSendingInterceptor() {
         Mockito.when(requestSendingInterceptor.interceptRequestSendingMessage(any(), anyString()))
-                .thenAnswer(d -> d.getArgument(0));
+               .thenAnswer(d -> d.getArgument(0));
     }
 
     @Test
@@ -56,10 +59,12 @@ class RequestReplyMessageSendingInterceptorTests extends AbstractRequestReplyLog
         ));
 
         // the interceptor must be called with the expected binding name:
-        Mockito.verify(requestSendingInterceptor, Mockito.times(1)).interceptRequestSendingMessage(
-                messageCaptor.capture(),
-                eq("requestReplyRepliesDemo"));
-        assertEquals(request, messageCaptor.getValue().getPayload());
+        Mockito.verify(requestSendingInterceptor, Mockito.times(1))
+               .interceptRequestSendingMessage(
+                       messageCaptor.capture(),
+                       eq("requestReplyRepliesDemo"));
+        assertEquals(request, messageCaptor.getValue()
+                                           .getPayload());
 
         resetMocks();
     }
@@ -74,22 +79,23 @@ class RequestReplyMessageSendingInterceptorTests extends AbstractRequestReplyLog
 
         // Receive message and mock the response.
         Mockito.when(streamBridge.send(
-                anyString(),
-                any(Message.class)
-        )).thenAnswer(invocation -> {
-            Message<SensorReading> msg = invocation.getArgument(1);
+                       anyString(),
+                       any(Message.class)
+               ))
+               .thenAnswer(invocation -> {
+                   Message<SensorReading> msg = invocation.getArgument(1);
 
-            // Simply echo all request header back.
-            requestReplyService.onReplyReceived(
-                    MessageBuilder.createMessage(
-                            // RR-Service must not unpack payload
-                            expectedResponse,
-                            msg.getHeaders()
-                    )
-            );
+                   // Simply echo all request header back.
+                   requestReplyService.onReplyReceived(
+                           MessageBuilder.createMessage(
+                                   // RR-Service must not unpack payload
+                                   expectedResponse,
+                                   msg.getHeaders()
+                           )
+                   );
 
-            return true;
-        });
+                   return true;
+               });
 
         SensorReading response = requestReplyService.requestAndAwaitReplyToTopic(
                 request,
@@ -104,10 +110,12 @@ class RequestReplyMessageSendingInterceptorTests extends AbstractRequestReplyLog
         );
 
         // the interceptor must be called with the expected binding name:
-        Mockito.verify(requestSendingInterceptor, Mockito.times(1)).interceptRequestSendingMessage(
-                messageCaptor.capture(),
-                eq("requestReplyRepliesDemo"));
-        assertEquals(request, messageCaptor.getValue().getPayload());
+        Mockito.verify(requestSendingInterceptor, Mockito.times(1))
+               .interceptRequestSendingMessage(
+                       messageCaptor.capture(),
+                       eq("requestReplyRepliesDemo"));
+        assertEquals(request, messageCaptor.getValue()
+                                           .getPayload());
 
         resetMocks();
     }
@@ -123,38 +131,39 @@ class RequestReplyMessageSendingInterceptorTests extends AbstractRequestReplyLog
 
         // Receive message and mock the response.
         Mockito.when(streamBridge.send(
-                anyString(),
-                any(Message.class)
-        )).thenAnswer(invocation -> {
-            Message<SensorReading> msg = invocation.getArgument(1);
+                       anyString(),
+                       any(Message.class)
+               ))
+               .thenAnswer(invocation -> {
+                   Message<SensorReading> msg = invocation.getArgument(1);
 
-            requestReplyService.onReplyReceived(
-                    MessageBuilder
-                            .withPayload(expectedResponseA)
-                            .setHeaders(new MessageHeaderAccessor(msg))
-                            .setHeader("totalReplies", "3")
-                            .setHeader("replyIndex", "0")
-                            .build()
-            );
-            requestReplyService.onReplyReceived(
-                    MessageBuilder
-                            .withPayload(expectedResponseB)
-                            .setHeaders(new MessageHeaderAccessor(msg))
-                            .setHeader("totalReplies", "3")
-                            .setHeader("replyIndex", "1")
-                            .build()
-            );
-            requestReplyService.onReplyReceived(
-                    MessageBuilder
-                            .withPayload(expectedResponseC)
-                            .setHeaders(new MessageHeaderAccessor(msg))
-                            .setHeader("totalReplies", "3")
-                            .setHeader("replyIndex", "2")
-                            .build()
-            );
+                   requestReplyService.onReplyReceived(
+                           MessageBuilder
+                                   .withPayload(expectedResponseA)
+                                   .setHeaders(new MessageHeaderAccessor(msg))
+                                   .setHeader("totalReplies", "3")
+                                   .setHeader("replyIndex", "0")
+                                   .build()
+                   );
+                   requestReplyService.onReplyReceived(
+                           MessageBuilder
+                                   .withPayload(expectedResponseB)
+                                   .setHeaders(new MessageHeaderAccessor(msg))
+                                   .setHeader("totalReplies", "3")
+                                   .setHeader("replyIndex", "1")
+                                   .build()
+                   );
+                   requestReplyService.onReplyReceived(
+                           MessageBuilder
+                                   .withPayload(expectedResponseC)
+                                   .setHeaders(new MessageHeaderAccessor(msg))
+                                   .setHeader("totalReplies", "3")
+                                   .setHeader("replyIndex", "2")
+                                   .build()
+                   );
 
-            return true;
-        });
+                   return true;
+               });
 
 
         Flux<SensorReading> flux = requestReplyService.requestReplyToTopicReactive(
@@ -173,10 +182,12 @@ class RequestReplyMessageSendingInterceptorTests extends AbstractRequestReplyLog
                 .verify(Duration.ofSeconds(10));
 
         // the interceptor must be called with the expected binding name:
-        Mockito.verify(requestSendingInterceptor, Mockito.times(1)).interceptRequestSendingMessage(
-                messageCaptor.capture(),
-                eq("requestReplyRepliesDemo"));
-        assertEquals(request, messageCaptor.getValue().getPayload());
+        Mockito.verify(requestSendingInterceptor, Mockito.times(1))
+               .interceptRequestSendingMessage(
+                       messageCaptor.capture(),
+                       eq("requestReplyRepliesDemo"));
+        assertEquals(request, messageCaptor.getValue()
+                                           .getPayload());
 
         resetMocks();
     }

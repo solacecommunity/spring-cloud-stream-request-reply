@@ -24,7 +24,7 @@ class RequestReplySimpleMessageHeaderSupportServiceTest extends AbstractRequestR
     @Autowired
     protected void setMessageHeaderSupportService(RequestReplyMessageHeaderSupportService messageHeaderSupportService) {
         this.messageHeaderSupportService = messageHeaderSupportService;
-        this.testFunction = messageHeaderSupportService.wrap(DUMMY_FUNCTION, null);
+        this.testFunction = messageHeaderSupportService.wrap(DUMMY_FUNCTION, (Class<Throwable>) null);
     }
 
     @Test
