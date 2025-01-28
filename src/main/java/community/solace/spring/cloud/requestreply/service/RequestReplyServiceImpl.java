@@ -14,7 +14,6 @@ import io.micrometer.core.instrument.Timer;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -268,7 +267,6 @@ public class RequestReplyServiceImpl implements RequestReplyService {
         };
     }
 
-    @Nullable
     @SuppressWarnings("unchecked")
     private <A> A extractMsgBody(Class<A> expectedClass, Message<?> msg) {
         return expectedClass.isAssignableFrom(msg.getPayload().getClass()) ?

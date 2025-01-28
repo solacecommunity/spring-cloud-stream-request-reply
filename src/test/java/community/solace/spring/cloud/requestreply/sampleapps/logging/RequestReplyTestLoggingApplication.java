@@ -29,9 +29,8 @@ public class RequestReplyTestLoggingApplication {
     }
 
     @Bean
-    @Autowired
     public Function<Message<String>, Message<String>> reverse(RequestReplyMessageHeaderSupportService headerSupport) {
-        return headerSupport.wrap((value) -> new StringBuilder(value).reverse().toString(), null);
+        return headerSupport.wrap((value) -> new StringBuilder(value).reverse().toString(), (Class<Throwable>) null);
     }
 
     @Bean
