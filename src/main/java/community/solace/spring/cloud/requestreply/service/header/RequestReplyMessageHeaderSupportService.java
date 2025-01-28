@@ -1,5 +1,15 @@
 package community.solace.spring.cloud.requestreply.service.header;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+
 import community.solace.spring.cloud.requestreply.config.RequestReplyProperties;
 import community.solace.spring.cloud.requestreply.service.MessageConverter;
 import community.solace.spring.cloud.requestreply.service.header.parser.SpringHeaderParser;
@@ -11,7 +21,10 @@ import community.solace.spring.cloud.requestreply.service.header.parser.totalrep
 import community.solace.spring.cloud.requestreply.service.messageinterceptor.ReplyWrappingInterceptor;
 import community.solace.spring.cloud.requestreply.util.MessageChunker;
 import org.apache.commons.lang3.tuple.Pair;
-import org.jetbrains.annotations.NotNull;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
+import reactor.core.publisher.Mono;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.config.BindingProperties;
@@ -25,15 +38,6 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.StringUtils;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxSink;
-import reactor.core.publisher.Mono;
-
-import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
 
 @Service
 public class RequestReplyMessageHeaderSupportService {
@@ -68,56 +72,56 @@ public class RequestReplyMessageHeaderSupportService {
     public @Nullable
     String getCorrelationId(Message<?> message) {
         return message == null ? null
-                : correlationIdHeaderParsers
-                .stream()
-                .map(p -> p.getCorrelationId(message))
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+                               : correlationIdHeaderParsers
+                       .stream()
+                       .map(p -> p.getCorrelationId(message))
+                       .filter(Objects::nonNull)
+                       .findFirst()
+                       .orElse(null);
     }
 
     public @Nullable
     String getDestination(Message<?> message) {
         return message == null ? null
-                : destinationHeaderParsers
-                .stream()
-                .map(p -> p.getDestination(message))
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+                               : destinationHeaderParsers
+                       .stream()
+                       .map(p -> p.getDestination(message))
+                       .filter(Objects::nonNull)
+                       .findFirst()
+                       .orElse(null);
     }
 
     public @Nullable
     String getReplyTo(Message<?> message) {
         return message == null ? null
-                : replyToParsers
-                .stream()
-                .map(p -> p.getReplyTo(message))
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+                               : replyToParsers
+                       .stream()
+                       .map(p -> p.getReplyTo(message))
+                       .filter(Objects::nonNull)
+                       .findFirst()
+                       .orElse(null);
     }
 
     public @Nullable
     Long getTotalReplies(Message<?> message) {
         return message == null ? null
-                : totalRepliesParsers
-                .stream()
-                .map(p -> p.getTotalReplies(message))
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+                               : totalRepliesParsers
+                       .stream()
+                       .map(p -> p.getTotalReplies(message))
+                       .filter(Objects::nonNull)
+                       .findFirst()
+                       .orElse(null);
     }
 
     public @Nullable
     String getErrorMessage(Message<?> message) {
         return message == null ? null
-                : errorMessageParsers
-                .stream()
-                .map(p -> p.getErrorMessage(message))
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+                               : errorMessageParsers
+                       .stream()
+                       .map(p -> p.getErrorMessage(message))
+                       .filter(Objects::nonNull)
+                       .findFirst()
+                       .orElse(null);
     }
 
     /**
@@ -134,6 +138,25 @@ public class RequestReplyMessageHeaderSupportService {
     public final <Q, A, T extends Function<Q, A>, E extends Throwable> Function<Message<Q>, Message<A>> wrap(T payloadFunction,
                                                                                                              Class<E>... applicationExceptions) {
         return wrapWithBindingName(payloadFunction, (String) null, new HashMap<>(), applicationExceptions);
+    }
+
+    /**
+     * wrap the given function, copying message headers from incoming to outgoing message,
+     * properly setting correlation ID and target
+     *
+     * @param <Q>                   incoming message payload type
+     * @param <A>                   outgoing message payload type
+     * @param payloadFunction       mapping function from incoming to outgoing payload
+     * @param additionalHeaders     additional headers to be added to the response message
+     * @param applicationExceptions A list of exceptions that will return the error to the requestor
+     * @return message with the payload function applied to the incoming message and the message headers prepared for answering
+     */
+    @SafeVarargs
+    public final <Q, A, T extends Function<Q, A>, E extends Throwable> Function<Message<Q>, Message<A>> wrap(
+            T payloadFunction,
+            Map<String, Object> additionalHeaders,
+            Class<E>... applicationExceptions) {
+        return wrapWithBindingName(payloadFunction, null, additionalHeaders, applicationExceptions);
     }
 
     /**
@@ -163,7 +186,8 @@ public class RequestReplyMessageHeaderSupportService {
                     }
                 }
                 return this.replyWrappingInterceptor.interceptReplyWrappingPayloadMessage(mb.build(), bindingName);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 if (applicationExceptions != null) {
                     for (Class<E> applicationException : applicationExceptions) {
                         if (applicationException.isInstance(e)) {
@@ -197,13 +221,15 @@ public class RequestReplyMessageHeaderSupportService {
                     return interceptResponses(bindingName, List.of(emptyMsg(request, 0, 0, bindingName)));
                 } else {
 
-                    if (Boolean.TRUE.equals(request.getHeaders().get(SpringHeaderParser.GROUPED_MESSAGES)) && StringUtils.hasText(bindingName)) {
+                    if (Boolean.TRUE.equals(request.getHeaders()
+                                                   .get(SpringHeaderParser.GROUPED_MESSAGES)) && StringUtils.hasText(bindingName)) {
                         return interceptResponses(bindingName, wrapListGroupedResponses(request, rawResponses, getContentType(bindingName), bindingName));
                     } else {
                         return wrapListSingleResponses(request, rawResponses, bindingName);
                     }
                 }
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 if (applicationExceptions != null) {
                     for (Class<E> applicationException : applicationExceptions) {
                         if (applicationException.isInstance(e)) {
@@ -217,8 +243,9 @@ public class RequestReplyMessageHeaderSupportService {
     }
 
     private <A> List<Message<A>> interceptResponses(String bindingName, List<Message<A>> messages) {
-        return messages.stream().map(message -> replyWrappingInterceptor.interceptReplyWrappingPayloadMessage(message, bindingName))
-                .toList();
+        return messages.stream()
+                       .map(message -> replyWrappingInterceptor.interceptReplyWrappingPayloadMessage(message, bindingName))
+                       .toList();
     }
 
     private <A, Q> List<Message<A>> wrapListSingleResponses(Message<Q> request, List<A> rawResponses, String bindingName) {
@@ -292,12 +319,14 @@ public class RequestReplyMessageHeaderSupportService {
                     try {
                         Flux<A> responses = Flux.create(fluxSink -> payloadFunction.accept(request.getPayload(), fluxSink));
 
-                        if (Boolean.TRUE.equals(request.getHeaders().get(SpringHeaderParser.GROUPED_MESSAGES)) && StringUtils.hasText(bindingName)) {
+                        if (Boolean.TRUE.equals(request.getHeaders()
+                                                       .get(SpringHeaderParser.GROUPED_MESSAGES)) && StringUtils.hasText(bindingName)) {
                             return wrapFluxGroupedResponses(request, responses, getContentType(bindingName), groupTimeout, bindingName);
                         } else {
                             return wrapFluxSingleResponses(request, responses, bindingName);
                         }
-                    } catch (Exception e) {
+                    }
+                    catch (Exception e) {
                         return Flux.error(e);
                     }
                 });
@@ -350,7 +379,6 @@ public class RequestReplyMessageHeaderSupportService {
         return (Message<A>) this.replyWrappingInterceptor.interceptReplyWrappingFinishingEmptyMessage(mb.build(), bindingName);
     }
 
-    @NotNull
     @SuppressWarnings("unchecked")
     private <Q, A> Message<A> errorResponse(Message<Q> request, Throwable e, String bindingName) {
         MessageBuilder<String> mb = MessageBuilder.withPayload("");
