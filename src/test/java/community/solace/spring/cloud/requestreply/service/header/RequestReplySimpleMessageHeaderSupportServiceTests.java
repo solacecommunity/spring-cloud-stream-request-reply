@@ -92,7 +92,7 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
 
     @Test
     void wrap() {
-        Function<Message<String>, Message<String>> supplier = supportService.wrap(m -> m, null);
+        Function<Message<String>, Message<String>> supplier = supportService.wrap(m -> m, (Class<Throwable>) null);
 
         Message<String> m = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
@@ -117,7 +117,7 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
 
     @Test
     void wrapList_singleResponses() {
-        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m), "requestReplyRepliesDemo-out-0", null);
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m), "requestReplyRepliesDemo-out-0", (Class<Throwable>) null);
 
         Message<String> m = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
@@ -175,7 +175,7 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
 
     @Test
     void wrapList_groupedResponses() {
-        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m), "requestReplyRepliesDemo-out-0", null);
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m), "requestReplyRepliesDemo-out-0", (Class<Throwable>) null);
 
         Message<String> m = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
@@ -367,7 +367,7 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
 
     @Test
     void wrapList_emptyList_shouldCreateMessageWithTotalRepliesNull() {
-        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> Collections.emptyList(), "requestReplyRepliesDemo-out-0", null);
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> Collections.emptyList(), "requestReplyRepliesDemo-out-0", (Class<Throwable>) null);
 
         Message<String> m = MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")

@@ -5,13 +5,13 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.2</version>
+        <version>3.4.2</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
     <groupId>community.solace.spring.cloud</groupId>
     <artifactId>spring-cloud-stream-starter-request-reply</artifactId>
-    <version>5.2.1</version>
+    <version>5.2.2</version>
     <name>spring-cloud-stream-starter-request-reply</name>
     <description>Spring Boot Starter project to provide request and reply functionality to Spring Cloud Stream
         projects
@@ -19,9 +19,9 @@
 
     <properties>
         <java.version>17</java.version>
-        <spring.boot.version>3.3.0</spring.boot.version>
-        <spring-cloud.version>2023.0.2</spring-cloud.version>
-        <solace.jcsmp.version>10.24.0</solace.jcsmp.version>
+        <spring.boot.version>3.4.2</spring.boot.version>
+        <spring-cloud.version>2024.0.0</spring-cloud.version>
+        <solace.jcsmp.version>10.25.2</solace.jcsmp.version>
         <commons-logging.version>1.2</commons-logging.version>
         <dependency-check-maven.version>11.1.1</dependency-check-maven.version>
     </properties>

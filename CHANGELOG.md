@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.2.2 - 2025-01-28
+### Changed
+- Support for spring 3.4.2 and spring cloud 24.0.0
+
 ## 5.0.0 - 2023-06-05
 ### Changed
 - Support for spring 3
@@ -58,7 +62,7 @@ _n/a_
 
 ## 3.1.0 - 2023-05-01
 ### Changed
-- all blocking methods may throw RequestReplyException 
+- all blocking methods may throw RequestReplyException
 
 ### Added
 - add support for error responses
@@ -99,7 +103,7 @@ _n/a_
 
 ## 2.7.0 - 2022-09-13
 ### Changed
-_n/a_ 
+_n/a_
 
 ### Added
 - RCSPF-119794 + RCSPF-120742 copy original header to response to enable TibRv support
