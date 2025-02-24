@@ -24,6 +24,8 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static community.solace.spring.cloud.requestreply.model.SensorReading.BaseUnit.CELSIUS;
+import static org.awaitility.Awaitility.await;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -1128,12 +1130,15 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
             }
         }
 
-        Mockito.verify(streamBridge, Mockito.times(10))
+        Mockito.verify(streamBridge, Mockito.timeout(500)
+                                            .times(10))
                .send(
                        destinationCaptor.capture(),
                        messageCaptor.capture()
                );
 
-        assertEquals(0, requestReplyService.runningRequests());
+        await()
+                .atMost(Duration.ofSeconds(3))
+                .until(requestReplyService::runningRequests, equalTo(0));
     }
 }

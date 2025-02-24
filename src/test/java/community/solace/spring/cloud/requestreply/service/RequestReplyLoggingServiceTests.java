@@ -58,7 +58,7 @@ class RequestReplyLoggingServiceTests extends AbstractRequestReplyLoggingIT {
         ));
 
         // at least one error log must be thrown into the customized logger:
-        Mockito.verify(requestReplyLogger, Mockito.times(1))
+        Mockito.verify(requestReplyLogger, Mockito.timeout(500).times(1))
                .log(eq(LoggerFactory.getLogger(RequestReplyServiceImpl.class)),
                     eq(Level.ERROR),
                     matches(".*Failed.+to.+collect.*"),
@@ -82,7 +82,7 @@ class RequestReplyLoggingServiceTests extends AbstractRequestReplyLoggingIT {
         ));
 
         // at least one error log must be thrown into the customized logger:
-        Mockito.verify(requestReplyLogger, Mockito.times(1))
+        Mockito.verify(requestReplyLogger, Mockito.timeout(500).times(1))
                .log(eq(LoggerFactory.getLogger(RequestReplyServiceImpl.class)),
                     eq(Level.ERROR),
                     matches(".*Failed.+to.+collect.*"),
@@ -137,13 +137,13 @@ class RequestReplyLoggingServiceTests extends AbstractRequestReplyLoggingIT {
                     anyString(),
                     any(Object[].class));
 
-        Mockito.verify(requestReplyLogger, Mockito.times(1))
+        Mockito.verify(requestReplyLogger, Mockito.timeout(500).times(1))
                .logRequest(any(),
                            any(Level.class),
                            matches(".*[S,s]ending.+message.*"),
                            any(Message.class));
 
-        Mockito.verify(requestReplyLogger, Mockito.times(1))
+        Mockito.verify(requestReplyLogger, Mockito.timeout(500).times(1))
                .logReply(any(),
                          any(Level.class),
                          matches(".*[R,r]eceive.+[R,r]esponse.*"),
@@ -190,7 +190,7 @@ class RequestReplyLoggingServiceTests extends AbstractRequestReplyLoggingIT {
         );
 
         // at least one error log must be thrown into the customized logger:
-        Mockito.verify(requestReplyLogger, Mockito.times(1))
+        Mockito.verify(requestReplyLogger, Mockito.timeout(500).times(1))
                .log(eq(LoggerFactory.getLogger(RequestReplyServiceImpl.class)),
                     eq(Level.ERROR),
                     matches(".*Failed.+to.+collect.*"),
@@ -247,13 +247,13 @@ class RequestReplyLoggingServiceTests extends AbstractRequestReplyLoggingIT {
                     anyString(),
                     any(Object[].class));
 
-        Mockito.verify(requestReplyLogger, Mockito.times(1))
+        Mockito.verify(requestReplyLogger, Mockito.timeout(500).times(1))
                .logRequest(any(),
                            any(Level.class),
                            matches(".*[S,s]ending.+message.*"),
                            any(Message.class));
 
-        Mockito.verify(requestReplyLogger, Mockito.times(1))
+        Mockito.verify(requestReplyLogger, Mockito.timeout(500).times(1))
                .logReply(any(),
                          any(Level.class),
                          matches(".*[R,r]eceive.+[R,r]esponse.*"),
@@ -301,7 +301,7 @@ class RequestReplyLoggingServiceTests extends AbstractRequestReplyLoggingIT {
         );
 
         // at least one error log must be thrown into the customized logger:
-        Mockito.verify(requestReplyLogger, Mockito.times(1))
+        Mockito.verify(requestReplyLogger, Mockito.timeout(500).times(1))
                .log(eq(LoggerFactory.getLogger(RequestReplyServiceImpl.class)),
                     eq(Level.ERROR),
                     matches(".*Failed.+to.+collect.*"),
@@ -320,7 +320,7 @@ class RequestReplyLoggingServiceTests extends AbstractRequestReplyLoggingIT {
                               .build()
         );
 
-        Mockito.verify(requestReplyLogger, Mockito.times(1))
+        Mockito.verify(requestReplyLogger, Mockito.timeout(500).times(1))
                .log(eq(LoggerFactory.getLogger(RequestReplyServiceImpl.class)),
                     eq(Level.ERROR),
                     matches(".*Received.+unexpected.+message.+without.+correlation.*"),
@@ -337,7 +337,7 @@ class RequestReplyLoggingServiceTests extends AbstractRequestReplyLoggingIT {
                               .build()
         );
 
-        Mockito.verify(requestReplyLogger, Mockito.times(1))
+        Mockito.verify(requestReplyLogger, Mockito.timeout(500).times(1))
                .log(eq(LoggerFactory.getLogger(RequestReplyServiceImpl.class)),
                     eq(Level.INFO),
                     matches(".*Received.+unexpected.+message.*"),
@@ -368,7 +368,7 @@ class RequestReplyLoggingServiceTests extends AbstractRequestReplyLoggingIT {
                        messageCaptor.capture()
                );
 
-        Mockito.verify(requestReplyLogger, Mockito.times(1))
+        Mockito.verify(requestReplyLogger, Mockito.timeout(500).times(1))
                .log(eq(LoggerFactory.getLogger(RequestReplyServiceImpl.class)),
                     eq(Level.ERROR),
                     matches(".*Failed.+to.+collect.*"),
@@ -443,13 +443,13 @@ class RequestReplyLoggingServiceTests extends AbstractRequestReplyLoggingIT {
                     anyString(),
                     any(Object[].class));
 
-        Mockito.verify(requestReplyLogger, Mockito.times(1))
+        Mockito.verify(requestReplyLogger, Mockito.timeout(500).times(1))
                .logRequest(any(),
                            any(Level.class),
                            matches(".*[S,s]ending.+message.*"),
                            any(Message.class));
 
-        Mockito.verify(requestReplyLogger, Mockito.times(3))
+        Mockito.verify(requestReplyLogger, Mockito.timeout(500).times(3))
                .logReply(any(),
                          any(Level.class),
                          matches(".*[R,r]eceive.+[R,r]esponse.*"),
