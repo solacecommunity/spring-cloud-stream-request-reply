@@ -1,4 +1,4 @@
-name: Publish package to the Maven Central Repository
+name: Validate maven builds
 on:
   push:
     branches:
@@ -8,7 +8,7 @@ on:
   branch_protection_rule:
     types: [created, deleted]
 jobs:
-  publish:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
