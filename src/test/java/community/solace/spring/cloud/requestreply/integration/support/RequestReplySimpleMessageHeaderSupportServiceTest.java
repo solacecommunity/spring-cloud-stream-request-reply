@@ -1,22 +1,26 @@
 package community.solace.spring.cloud.requestreply.integration.support;
 
+import java.util.UUID;
+import java.util.function.Function;
+
 import community.solace.spring.cloud.requestreply.AbstractRequestReplySimpleIT;
 import community.solace.spring.cloud.requestreply.service.header.RequestReplyMessageHeaderSupportService;
+import community.solace.spring.cloud.requestreply.service.header.RequestReplyMessageHeaderSupportService.ThrowingFunction;
 import org.junit.jupiter.api.Test;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.integration.IntegrationMessageHeaderAccessor;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 
-import java.util.UUID;
-import java.util.function.Function;
-import java.util.function.UnaryOperator;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class RequestReplySimpleMessageHeaderSupportServiceTest extends AbstractRequestReplySimpleIT {
-    private static final UnaryOperator<String> DUMMY_FUNCTION = o -> o;
+    private static final ThrowingFunction<String, String> DUMMY_FUNCTION = o -> o;
 
     private RequestReplyMessageHeaderSupportService messageHeaderSupportService;
     private Function<Message<String>, Message<String>> testFunction;
@@ -45,18 +49,24 @@ class RequestReplySimpleMessageHeaderSupportServiceTest extends AbstractRequestR
     @Test
     void existingCorrelationIdShouldBePickedUpFromRequest() {
         Message<String> msg = MessageBuilder.withPayload("existingCorrelationIdShouldBePickedUpFromRequest")
-                .setCorrelationId(UUID.randomUUID())
-                .build();
+                                            .setCorrelationId(UUID.randomUUID())
+                                            .build();
 
         Message<String> result = testFunction.apply(msg);
 
         assertEquals(
-                msg.getHeaders().get(IntegrationMessageHeaderAccessor.CORRELATION_ID).toString(),
-                result.getHeaders().get(IntegrationMessageHeaderAccessor.CORRELATION_ID).toString()
+                msg.getHeaders()
+                   .get(IntegrationMessageHeaderAccessor.CORRELATION_ID)
+                   .toString(),
+                result.getHeaders()
+                      .get(IntegrationMessageHeaderAccessor.CORRELATION_ID)
+                      .toString()
         );
         assertNotEquals(
-                msg.getHeaders().get(MessageHeaders.ID),
-                result.getHeaders().get(IntegrationMessageHeaderAccessor.CORRELATION_ID)
+                msg.getHeaders()
+                   .get(MessageHeaders.ID),
+                result.getHeaders()
+                      .get(IntegrationMessageHeaderAccessor.CORRELATION_ID)
         );
     }
 
@@ -69,10 +79,10 @@ class RequestReplySimpleMessageHeaderSupportServiceTest extends AbstractRequestR
         String unknownHeaderKey = "unknownHeader";
 
         Message<String> msg = MessageBuilder.withPayload("existingCorrelationIdShouldBePickedUpFromRequest")
-                .setHeader(encodingHeaderKey, encodingHeaderValue)
-                .setHeader(dummyHeaderKey, dummyHeaderValue)
-                .setHeader(unknownHeaderKey, UUID.randomUUID())
-                .build();
+                                            .setHeader(encodingHeaderKey, encodingHeaderValue)
+                                            .setHeader(dummyHeaderKey, dummyHeaderValue)
+                                            .setHeader(unknownHeaderKey, UUID.randomUUID())
+                                            .build();
 
         Message<String> result = testFunction.apply(msg);
 

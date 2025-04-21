@@ -7,6 +7,7 @@ import java.util.function.Function;
 
 import community.solace.spring.cloud.requestreply.AbstractRequestReplyLoggingIT;
 import community.solace.spring.cloud.requestreply.service.header.RequestReplyMessageHeaderSupportService;
+import community.solace.spring.cloud.requestreply.service.header.RequestReplyMessageHeaderSupportService.ThrowingFunction;
 import community.solace.spring.cloud.requestreply.service.messageinterceptor.ReplyWrappingInterceptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,7 +107,7 @@ class RequestReplyMessageReplyWrappingInterceptorTests extends AbstractRequestRe
                              .toString();
         final String bindingName = "anyOtherBindingName-out-0";
 
-        headerSupport.<RequestTester, ReplyTester, Function<RequestTester, ReplyTester>, RuntimeException>wrapWithBindingName(
+        headerSupport.<RequestTester, ReplyTester, ThrowingFunction<RequestTester, ReplyTester>>wrapWithBindingName(
                              (RequestTester actualRequestTester) -> replyTester, bindingName, new HashMap<>())
                      .apply(MessageBuilder.withPayload(new RequestTester())
                                           .build());
