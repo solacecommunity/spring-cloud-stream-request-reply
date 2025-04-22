@@ -135,8 +135,8 @@ public class RequestReplyMessageHeaderSupportService {
      * @return message with the payload function applied to the incoming message and the message headers prepared for answering
      */
     @SafeVarargs
-    public final <Q, A, T extends Function<Q, A>, E extends Throwable> Function<Message<Q>, Message<A>> wrap(T payloadFunction,
-                                                                                                             Class<E>... applicationExceptions) {
+    public final <Q, A, T extends ThrowingFunction<Q, A>> Function<Message<Q>, Message<A>> wrap(T payloadFunction,
+                                                                                                             Class<? extends Throwable>... applicationExceptions) {
         return wrapWithBindingName(payloadFunction, (String) null, new HashMap<>(), applicationExceptions);
     }
 
@@ -152,10 +152,10 @@ public class RequestReplyMessageHeaderSupportService {
      * @return message with the payload function applied to the incoming message and the message headers prepared for answering
      */
     @SafeVarargs
-    public final <Q, A, T extends Function<Q, A>, E extends Throwable> Function<Message<Q>, Message<A>> wrap(
+    public final <Q, A, T extends ThrowingFunction<Q, A>> Function<Message<Q>, Message<A>> wrap(
             T payloadFunction,
             Map<String, Object> additionalHeaders,
-            Class<E>... applicationExceptions) {
+            Class<? extends Throwable>... applicationExceptions) {
         return wrapWithBindingName(payloadFunction, null, additionalHeaders, applicationExceptions);
     }
 
@@ -172,10 +172,10 @@ public class RequestReplyMessageHeaderSupportService {
      * @return message with the payload function applied to the incoming message and the message headers prepared for answering
      */
     @SafeVarargs
-    public final <Q, A, T extends Function<Q, A>, E extends Throwable> Function<Message<Q>, Message<A>> wrapWithBindingName(T payloadFunction,
+    public final <Q, A, T extends ThrowingFunction<Q, A>> Function<Message<Q>, Message<A>> wrapWithBindingName(T payloadFunction,
                                                                                                                             String bindingName,
                                                                                                                             Map<String, Object> additionalHeaders,
-                                                                                                                            Class<E>... applicationExceptions) {
+                                                                                                                            Class<? extends Throwable>... applicationExceptions) {
         return request -> {
             try {
                 MessageBuilder<A> mb = MessageBuilder.withPayload(payloadFunction.apply(request.getPayload()));
@@ -189,13 +189,16 @@ public class RequestReplyMessageHeaderSupportService {
             }
             catch (Exception e) {
                 if (applicationExceptions != null) {
-                    for (Class<E> applicationException : applicationExceptions) {
+                    for (Class<? extends Throwable> applicationException : applicationExceptions) {
                         if (applicationException.isInstance(e)) {
                             return errorResponse(request, e, bindingName);
                         }
                     }
                 }
-                throw e;
+                if (e instanceof RuntimeException runtimeException) {
+                    throw runtimeException;
+                }
+                throw new RuntimeException(e);
             }
         };
     }
@@ -414,5 +417,17 @@ public class RequestReplyMessageHeaderSupportService {
                 mb.setHeaderIfAbsent(headerToCopy, val);
             }
         }
+    }
+
+    @FunctionalInterface
+    public interface ThrowingFunction<T, R> {
+
+        /**
+         * Applies this function to the given argument.
+         *
+         * @param t the function argument
+         * @return the function result
+         */
+        R apply(T t) throws Exception;
     }
 }
