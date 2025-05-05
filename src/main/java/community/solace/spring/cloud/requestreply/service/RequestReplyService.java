@@ -185,7 +185,6 @@ public interface RequestReplyService {
      * sends the given request to the given message channel, awaits the response and maps it to the provided class as a return
      * as stream of values this is non-blocking.
      * This can be used for request/multy reply.
-     * Attention: use this only for the special edge case that you need parallel requests in the same thread.
      *
      * @param <Q>           question/request type
      * @param <A>           answer/response type
@@ -208,7 +207,6 @@ public interface RequestReplyService {
      * sends the given request to the given message channel, awaits the response and maps it to the provided class as a return
      * as stream of values this is non-blocking.
      * This can be used for request/multy reply.
-     * Attention: use this only for the special edge case that you need parallel requests in the same thread.
      *
      * @param <Q>               question/request type
      * @param <A>               answer/response type
@@ -232,7 +230,6 @@ public interface RequestReplyService {
      * sends the given request to the given message channel, awaits the response and maps it to the provided class as a return
      * as stream of values this is non-blocking.
      * This can be used for request/multy reply.
-     * Attention: use this only for the special edge case that you need parallel requests in the same thread.
      *
      * @param <Q>                question/request type
      * @param <A>                answer/response type
@@ -255,7 +252,6 @@ public interface RequestReplyService {
      * sends the given request to the given message channel, awaits the response and maps it to the provided class as a return
      * as stream of values this is non-blocking.
      * This can be used for request/multy reply.
-     * Attention: use this only for the special edge case that you need parallel requests in the same thread.
      *
      * @param <Q>                question/request type
      * @param <A>                answer/response type
