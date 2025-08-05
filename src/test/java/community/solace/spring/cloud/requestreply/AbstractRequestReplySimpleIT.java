@@ -11,6 +11,8 @@ import org.mockito.listeners.MockCreationListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.cloud.stream.function.StreamBridge;
+import org.springframework.context.ApplicationEvent;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
@@ -24,6 +26,9 @@ import java.util.List;
 import static community.solace.spring.cloud.requestreply.AbstractRequestReplySimpleIT.PROFILE_LOCAL_APP;
 import static community.solace.spring.cloud.requestreply.AbstractRequestReplySimpleIT.PROFILE_TEST_SIMPLE;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atMost;
+import static org.mockito.Mockito.verify;
 
 @ActiveProfiles({PROFILE_TEST_SIMPLE, PROFILE_LOCAL_APP})
 @SpringBootTest()
@@ -68,6 +73,12 @@ public abstract class AbstractRequestReplySimpleIT {
     @AfterEach
     private void validateMocks() {
         if (!mocks.isEmpty()) {
+            for(Object mock : mocks.toArray()) {
+                if(mock instanceof StreamBridge) {
+                    verify((StreamBridge)mock, atMost(10)).onApplicationEvent(any(ApplicationEvent.class)); // used for logging purpose and valid in our case.
+                }
+                Mockito.verifyNoMoreInteractions(mock);
+            }
             Mockito.verifyNoMoreInteractions(mocks.toArray());
         }
     }
