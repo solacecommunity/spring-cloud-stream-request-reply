@@ -8,6 +8,7 @@ Consult the table below to determine which version you need to use:
 
 | Spring Cloud | spring-cloud-stream-starter-request-reply | Spring Boot | sol-jcsmp |
 |--------------|-------------------------------------------|-------------|-----------|
+| 2025.0.0     | 5.2.4                                     | 3.5.4       | 10.27.3   |
 | 2024.0.0     | 5.2.3                                     | 3.4.2       | 10.25.2   |
 | 2024.0.0     | 5.2.2                                     | 3.4.2       | 10.25.2   |
 | 2023.0.2     | 5.1.5                                     | 3.3.0       | 10.24.0   |
