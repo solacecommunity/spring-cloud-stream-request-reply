@@ -8,7 +8,7 @@ Consult the table below to determine which version you need to use:
 
 | Spring Cloud | spring-cloud-stream-starter-request-reply | Spring Boot | sol-jcsmp |
 |--------------|-------------------------------------------|-------------|-----------|
-| 2025.0.0     | 5.2.4                                     | 3.5.4       | 10.27.3   |
+| 2025.0.0     | 5.2.4, 5.3.0                              | 3.5.4       | 10.27.3   |
 | 2024.0.0     | 5.2.3                                     | 3.4.2       | 10.25.2   |
 | 2024.0.0     | 5.2.2                                     | 3.4.2       | 10.25.2   |
 | 2023.0.2     | 5.1.5                                     | 3.3.0       | 10.24.0   |
@@ -560,6 +560,29 @@ The starter also includes the following message parser implementations:
 - `HttpHeaderParser` _Order LOWEST_PRECEDENCE_
   implements `MessageHeaderCorrelationIdParser` according to the HTTP header standard
 
+## Compatibility
+
+### Tracing
+
+The request reply lib will forward the traceId from micrometer to have all spans of requester and replier in the same tracing.
+
+No special configuration is required, only set the default configuration required for tracing.
+```yaml
+spring:
+  application:
+    name: the-name-of-your-micro-service
+management:
+    zipkin:
+        tracing:
+            endpoint: https://demo-zipkin.xxxx.net/api/v2/spans
+            export:
+                enabled: true
+    tracing:
+        sampling:
+            probability: 1.0
+logging:
+    pattern: correlation=[${spring.application.name:},%X{traceId:-},%X{spanId:-}]
+```
 
 ## Known issues and Open Points
 
@@ -579,11 +602,12 @@ More precisely:
 
 Tested with:
 
-| SpringBoot 	 | SpringCloudStream 	  |
-|--------------|----------------------|
-| 2.6.6      	 | 2021.0.1          	  |
-| 2.6.6      	 | 2021.0.3           	 |
-| 3.2.5        | 2023.0.1           	 |
+| SpringBoot 	 | SpringCloudStream   |
+|:-------------|:--------------------|
+| 2.6.6      	 | 2021.0.1            |
+| 2.6.6      	 | 2021.0.3            |
+| 3.2.5        | 2023.0.1          	 |
+| 3.5.4        | 2025.0.0            |
 
 <!-- reused links -->
 

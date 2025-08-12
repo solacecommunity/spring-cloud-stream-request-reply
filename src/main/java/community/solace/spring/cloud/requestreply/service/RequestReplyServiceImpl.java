@@ -9,6 +9,8 @@ import community.solace.spring.cloud.requestreply.service.header.parser.SpringHe
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.RemoteErrorException;
 import community.solace.spring.cloud.requestreply.service.logging.RequestReplyLogger;
 import community.solace.spring.cloud.requestreply.service.messageinterceptor.RequestSendingInterceptor;
+import io.micrometer.context.ContextSnapshot;
+import io.micrometer.context.ContextSnapshotFactory;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import jakarta.validation.Valid;
@@ -387,10 +389,15 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             }
         });
 
-        return CompletableFuture.runAsync(runnable, REQUEST_REPLY_EXECUTOR)
-                .orTimeout(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS)
-                .exceptionally(ex -> {
-                    responseHandler.abort();
+        // Capture the context snapshot at request time
+        ContextSnapshot contextSnapshot = ContextSnapshotFactory.builder()
+                                                                .build()
+                                                                .captureAll();
+
+        return CompletableFuture.runAsync(contextSnapshot.wrap(runnable), REQUEST_REPLY_EXECUTOR)
+                                .orTimeout(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS)
+                                .exceptionally(ex -> {
+                                    responseHandler.abort();
 
                     if (ex instanceof RuntimeException rex) {
                         throw rex;

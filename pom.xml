@@ -11,7 +11,7 @@
 
     <groupId>community.solace.spring.cloud</groupId>
     <artifactId>spring-cloud-stream-starter-request-reply</artifactId>
-    <version>5.2.4</version>
+    <version>5.3.0</version>
     <name>spring-cloud-stream-starter-request-reply</name>
     <description>Spring Boot Starter project to provide request and reply functionality to Spring Cloud Stream
         projects
@@ -120,6 +120,10 @@
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>context-propagation</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
