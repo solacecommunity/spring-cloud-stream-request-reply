@@ -9,22 +9,22 @@ spring:
       requestreply:
         bindingMapping:
           - binding: requestReplyRepliesDemoSolaceDynamic
-            replyTopic: requestReply/response/solace/{StagePlaceholder}/dynamic/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
+            replyTopic: requestReply/response/solace/d-pampelmuse/dynamic/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
             topicPatterns:
               - last_value/temperature/celsius/.*
             replyHeaderName: customTestHeader
 
           - binding: requestReplyRepliesDemoSolaceStatic
-            replyTopic: requestReply/response/solace/{StagePlaceholder}/static/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
+            replyTopic: requestReply/response/solace/d-pampelmuse/static/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
             replyHeaderName: customTestHeader
 
           - binding: requestMultiReplySampleSolaceKnownSize
-            replyTopic: requestReply/response/solace/{StagePlaceholder}/multi_known/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
+            replyTopic: requestReply/response/solace/d-pampelmuse/multi_known/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
             topicPatterns:
               - last_hour/temperature/celsius/.*
 
           - binding: requestMultiReplySampleSolaceRandomSize
-            replyTopic: requestReply/response/solace/{StagePlaceholder}/multi_random/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
+            replyTopic: requestReply/response/solace/d-pampelmuse/multi_random/@project.artifactId@_${HOSTNAME}_${replyTopicWithWildcards|uuid}
             topicPatterns:
               - last_day/temperature/celsius/.*
 
