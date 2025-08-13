@@ -24,7 +24,7 @@ To enable the request/reply functionality, please add the following section to y
 <dependency>
     <groupId>community.solace.spring.cloud</groupId>
     <artifactId>spring-cloud-stream-starter-request-reply</artifactId>
-    <version>5.2.3</version>
+    <version>5.3.0</version>
 </dependency>
 ```
 
