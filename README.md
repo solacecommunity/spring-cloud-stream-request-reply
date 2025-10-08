@@ -8,6 +8,7 @@ Consult the table below to determine which version you need to use:
 
 | Spring Cloud | spring-cloud-stream-starter-request-reply | Spring Boot | sol-jcsmp |
 |--------------|-------------------------------------------|-------------|-----------|
+| 2025.0.0     | 5.3.1                                     | 3.5.6       | 10.28.1   |
 | 2025.0.0     | 5.2.4, 5.3.0                              | 3.5.4       | 10.27.3   |
 | 2024.0.0     | 5.2.3                                     | 3.4.2       | 10.25.2   |
 | 2024.0.0     | 5.2.2                                     | 3.4.2       | 10.25.2   |
@@ -24,7 +25,7 @@ To enable the request/reply functionality, please add the following section to y
 <dependency>
     <groupId>community.solace.spring.cloud</groupId>
     <artifactId>spring-cloud-stream-starter-request-reply</artifactId>
-    <version>5.3.0</version>
+    <version>5.3.1</version>
 </dependency>
 ```
 
