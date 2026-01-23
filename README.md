@@ -521,6 +521,8 @@ For example:
     }
 ```
 
+Return `null` from the wrapped function to indicate that the message should be dropped.
+
 ## Extensibility
 
 The Request/Reply Spring Boot Starter has been designed

@@ -116,6 +116,23 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
     }
 
     @Test
+    void wrap_noResponse() {
+        Function<Message<String>, Message<String>> supplier = supportService.wrap(m -> null, (Class<Throwable>) null);
+
+        Message<String> m = MessageBuilder.withPayload("demo")
+                                          .setHeader("correlationId", "my-correlationId-my")
+                                          .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                                          .setHeader("custom", "my-custom-my")
+                                          .build();
+
+        Message<String> answerM = supplier.apply(m);
+
+        assertNull(
+                answerM
+        );
+    }
+
+    @Test
     void wrapList_singleResponses() {
         Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m), "requestReplyRepliesDemo-out-0", (Class<Throwable>) null);
 
@@ -144,12 +161,12 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
                 answers.get(0).getHeaders().get("custom")
         );
         assertEquals(
-                answers.get(0).getHeaders().get("totalReplies"),
-                2L
+                2L,
+                answers.get(0).getHeaders().get("totalReplies")
         );
         assertEquals(
-                answers.get(0).getHeaders().get("replyIndex"),
-                "0"
+                "0",
+                answers.get(0).getHeaders().get("replyIndex")
         );
 
         assertEquals(
@@ -172,6 +189,24 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
                 answers.get(1).getHeaders().get("replyIndex")
         );
     }
+
+    @Test
+    void wrapList_noResponses() {
+        Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> null, "requestReplyRepliesDemo-out-0", (Class<Throwable>) null);
+
+        Message<String> m = MessageBuilder.withPayload("demo")
+                                          .setHeader("correlationId", "my-correlationId-my")
+                                          .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                                          .setHeader("custom", "my-custom-my")
+                                          .build();
+
+        List<Message<String>> answers = supplier.apply(m);
+
+        assertNull(
+                answers
+        );
+    }
+
 
     @Test
     void wrapList_groupedResponses() {

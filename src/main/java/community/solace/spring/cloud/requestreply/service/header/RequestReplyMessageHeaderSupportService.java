@@ -178,7 +178,11 @@ public class RequestReplyMessageHeaderSupportService {
                                                                                                                             Class<? extends Throwable>... applicationExceptions) {
         return request -> {
             try {
-                MessageBuilder<A> mb = MessageBuilder.withPayload(payloadFunction.apply(request.getPayload()));
+                A response = payloadFunction.apply(request.getPayload());
+                if (response == null) {
+                    return null;
+                }
+                MessageBuilder<A> mb = MessageBuilder.withPayload(response);
                 transferAndAdoptHeaders(request, mb);
                 if (additionalHeaders != null) {
                     for (var header : additionalHeaders.entrySet()) {
@@ -219,6 +223,10 @@ public class RequestReplyMessageHeaderSupportService {
         return request -> {
             try {
                 List<A> rawResponses = payloadFunction.apply(request.getPayload());
+
+                if (rawResponses == null) {
+                    return null;
+                }
 
                 if (CollectionUtils.isEmpty(rawResponses)) {
                     return interceptResponses(bindingName, List.of(emptyMsg(request, 0, 0, bindingName)));
