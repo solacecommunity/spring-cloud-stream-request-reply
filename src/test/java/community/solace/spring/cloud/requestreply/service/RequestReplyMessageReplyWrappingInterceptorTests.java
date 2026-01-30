@@ -30,9 +30,9 @@ import static org.mockito.ArgumentMatchers.eq;
 class RequestReplyMessageReplyWrappingInterceptorTests extends AbstractRequestReplyLoggingIT {
 
     @Captor
-    ArgumentCaptor<Message<?>> messageCaptor;
+    ArgumentCaptor<Message<?>> messageCaptor = ArgumentCaptor.forClass(Message.class);
     @Captor
-    ArgumentCaptor<String> destinationCaptor;
+    ArgumentCaptor<String> destinationCaptor = ArgumentCaptor.forClass(String.class);
     @Autowired
     private RequestReplyMessageHeaderSupportService headerSupport;
     @MockitoBean

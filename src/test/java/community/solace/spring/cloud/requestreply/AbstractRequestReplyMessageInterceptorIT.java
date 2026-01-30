@@ -9,8 +9,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.mockito.listeners.MockCreationListener;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
@@ -66,7 +66,7 @@ public abstract class AbstractRequestReplyMessageInterceptorIT {
     }
 
     @AfterEach
-    private void validateTestEndpoint() {
+    protected void validateTestEndpoint() {
         try {
             assertFalse(testEndpoint.hasExceptions());
         }

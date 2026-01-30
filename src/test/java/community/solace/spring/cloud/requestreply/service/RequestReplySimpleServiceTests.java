@@ -35,9 +35,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
 
     @Captor
-    ArgumentCaptor<Message<?>> messageCaptor;
+    ArgumentCaptor<Message<?>> messageCaptor = ArgumentCaptor.forClass(Message.class);
     @Captor
-    ArgumentCaptor<String> destinationCaptor;
+    ArgumentCaptor<String> destinationCaptor = ArgumentCaptor.forClass(String.class);
     @MockitoBean
     private StreamBridge streamBridge;
     @Autowired

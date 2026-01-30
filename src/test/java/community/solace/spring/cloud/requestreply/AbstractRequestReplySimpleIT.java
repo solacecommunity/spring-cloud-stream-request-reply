@@ -9,8 +9,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.mockito.listeners.MockCreationListener;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.test.annotation.DirtiesContext;
@@ -71,7 +71,7 @@ public abstract class AbstractRequestReplySimpleIT {
     }
 
     @AfterEach
-    private void validateMocks() {
+    protected void validateMocks() {
         if (!mocks.isEmpty()) {
             for(Object mock : mocks.toArray()) {
                 if(mock instanceof StreamBridge) {
@@ -84,7 +84,7 @@ public abstract class AbstractRequestReplySimpleIT {
     }
 
     @AfterEach
-    private void validateTestEndpoint() {
+    protected void validateTestEndpoint() {
         try {
             assertFalse(testEndpoint.hasExceptions());
         }
