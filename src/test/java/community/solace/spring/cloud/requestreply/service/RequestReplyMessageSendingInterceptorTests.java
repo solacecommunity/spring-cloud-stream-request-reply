@@ -31,8 +31,7 @@ import static org.mockito.ArgumentMatchers.eq;
 
 class RequestReplyMessageSendingInterceptorTests extends AbstractRequestReplyLoggingIT {
 
-    @Captor
-    ArgumentCaptor<Message<?>> messageCaptor;
+    ArgumentCaptor<Message<?>> messageCaptor = ArgumentCaptor.forClass(Message.class);
     @MockitoBean
     private StreamBridge streamBridge;
     @Autowired
