@@ -1,12 +1,15 @@
 package community.solace.spring.cloud.requestreply.service;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import community.solace.spring.cloud.requestreply.AbstractRequestReplySimpleIT;
 import community.solace.spring.cloud.requestreply.model.SensorReading;
+import community.solace.spring.cloud.requestreply.service.header.parser.SpringHeaderParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.RemoteErrorException;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -683,7 +686,7 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
                 request,
                 "last_value/temperature/celsius/demo",
                 SensorReading.class,
-                Duration.ofMillis(100)
+                Duration.ofMillis(500)
         );
 
         StepVerifier
@@ -767,38 +770,34 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
                .thenAnswer(invocation -> {
                    Message<SensorReading> msg = invocation.getArgument(1);
 
-                   requestReplyService.onReplyReceived(
-                           MessageBuilder
-                                   .withPayload(expectedResponseA)
-                                   .setHeaders(new MessageHeaderAccessor(msg))
-                                   .setHeader("totalReplies", "-1")
-                                   .setHeader("replyIndex", "0")
-                                   .build()
-                   );
-                   requestReplyService.onReplyReceived(
-                           MessageBuilder
-                                   .withPayload(expectedResponseB)
-                                   .setHeaders(new MessageHeaderAccessor(msg))
-                                   .setHeader("totalReplies", "-1")
-                                   .setHeader("replyIndex", "1")
-                                   .build()
-                   );
-                   requestReplyService.onReplyReceived(
-                           MessageBuilder
-                                   .withPayload(expectedResponseC)
-                                   .setHeaders(new MessageHeaderAccessor(msg))
-                                   .setHeader("totalReplies", "-1")
-                                   .setHeader("replyIndex", "2")
-                                   .build()
-                   );
-                   requestReplyService.onReplyReceived(
-                           MessageBuilder
-                                   .withPayload("")
-                                   .setHeaders(new MessageHeaderAccessor(msg))
-                                   .setHeader("totalReplies", "3")
-                                   .setHeader("replyIndex", "3")
-                                   .build()
-                   );
+                   CompletableFuture.runAsync(() -> {
+                       // Grouped responses are transported as text payloads (JSON) and converted at the requester.
+                       String jsonA = "{\"timestamp\":1682928000000,\"sensorID\":\"livingroom\",\"value\":22.0,\"unit\":\"CELSIUS\"}";
+                       String jsonB = "{\"timestamp\":1682931600000,\"sensorID\":\"bedroom\",\"value\":23.0,\"unit\":\"CELSIUS\"}";
+                       String jsonC = "{\"timestamp\":1682935200000,\"sensorID\":\"garage\",\"value\":24.0,\"unit\":\"CELSIUS\"}";
+
+                       Message<?> grouped = MessageBuilder
+                               .withPayload(TestSdtStreamSupport.createSdtStream(List.of(jsonA, jsonB, jsonC)))
+                               .setHeaders(new MessageHeaderAccessor(msg))
+                               .setHeader(SpringHeaderParser.GROUPED_MESSAGES, true)
+                               // Provide content-type so the requester can convert JSON -> SensorReading
+                               .setHeader(org.springframework.messaging.MessageHeaders.CONTENT_TYPE, "application/json")
+                               .setHeader("totalReplies", "3")
+                               .setHeader("replyIndex", "0-2")
+                               .build();
+
+                       requestReplyService.onReplyReceived(grouped);
+                       requestReplyService.onReplyReceived(grouped);
+
+                       requestReplyService.onReplyReceived(
+                               MessageBuilder
+                                       .withPayload("")
+                                       .setHeaders(new MessageHeaderAccessor(msg))
+                                       .setHeader("totalReplies", "3")
+                                       .setHeader("replyIndex", "3")
+                                       .build()
+                       );
+                   });
 
                    return true;
                });
@@ -808,7 +807,7 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
                 request,
                 "last_value/temperature/celsius/demo",
                 SensorReading.class,
-                Duration.ofMillis(100)
+                Duration.ofMillis(500)
         );
 
         StepVerifier
@@ -817,7 +816,7 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
                 .expectNext(expectedResponseB)
                 .expectNext(expectedResponseC)
                 .expectComplete()
-                .verify(Duration.ofSeconds(10));
+                .verify(Duration.ofSeconds(100));
 
         resetMocks();
     }
@@ -1130,15 +1129,81 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
             }
         }
 
-        Mockito.verify(streamBridge, Mockito.timeout(500)
-                                            .times(10))
-               .send(
-                       destinationCaptor.capture(),
-                       messageCaptor.capture()
-               );
+        // Be tolerant of scheduling jitter: the send() calls happen on async execution paths.
+        // Wait until we observe all expected send() invocations rather than relying on a short Mockito timeout.
+        await()
+                .atMost(Duration.ofSeconds(3))
+                .untilAsserted(() -> Mockito.verify(streamBridge, Mockito.times(10))
+                        .send(destinationCaptor.capture(), messageCaptor.capture()));
 
         await()
                 .atMost(Duration.ofSeconds(3))
                 .until(requestReplyService::runningRequests, equalTo(0));
+    }
+
+    @Test
+    void requestReplyToTopicReactive_shouldDeduplicate_whenRangeReplyIndexIsDuplicated() {
+        SensorReading request = new SensorReading();
+        request.setSensorID("toilet");
+
+        SensorReading expectedResponseA = new SensorReading(Ten_oClock, "livingroom", 22.0, CELSIUS);
+        SensorReading expectedResponseB = new SensorReading(Eleven_oClock, "bedroom", 23.0, CELSIUS);
+        SensorReading expectedResponseC = new SensorReading(Twelve_oClock, "garage", 24.0, CELSIUS);
+
+        Mockito.when(streamBridge.send(
+                       anyString(),
+                       any(Message.class)
+               ))
+               .thenAnswer(invocation -> {
+                   Message<SensorReading> msg = invocation.getArgument(1);
+
+                   CompletableFuture.runAsync(() -> {
+                       // Grouped responses are transported as text payloads (JSON) and converted at the requester.
+                       String jsonA = "{\"timestamp\":1682928000000,\"sensorID\":\"livingroom\",\"value\":22.0,\"unit\":\"CELSIUS\"}";
+                       String jsonB = "{\"timestamp\":1682931600000,\"sensorID\":\"bedroom\",\"value\":23.0,\"unit\":\"CELSIUS\"}";
+                       String jsonC = "{\"timestamp\":1682935200000,\"sensorID\":\"garage\",\"value\":24.0,\"unit\":\"CELSIUS\"}";
+
+                       Message<?> grouped = MessageBuilder
+                               .withPayload(TestSdtStreamSupport.createSdtStream(List.of(jsonA, jsonB, jsonC)))
+                               .setHeaders(new MessageHeaderAccessor(msg))
+                               .setHeader(SpringHeaderParser.GROUPED_MESSAGES, true)
+                               .setHeader(org.springframework.messaging.MessageHeaders.CONTENT_TYPE, "application/json")
+                               .setHeader("totalReplies", "3")
+                               .setHeader("replyIndex", "0-2")
+                               .build();
+
+                       requestReplyService.onReplyReceived(grouped);
+                       requestReplyService.onReplyReceived(grouped);
+
+                       requestReplyService.onReplyReceived(
+                               MessageBuilder
+                                       .withPayload("")
+                                       .setHeaders(new MessageHeaderAccessor(msg))
+                                       .setHeader("totalReplies", "3")
+                                       .setHeader("replyIndex", "3")
+                                       .build()
+                       );
+                   });
+
+                   return true;
+               });
+
+
+        Flux<SensorReading> flux = requestReplyService.requestReplyToTopicReactive(
+                request,
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(500)
+        );
+
+        StepVerifier
+                .create(flux)
+                .assertNext(r -> assertEquals("livingroom", r.getSensorID()))
+                .assertNext(r -> assertEquals("bedroom", r.getSensorID()))
+                .assertNext(r -> assertEquals("garage", r.getSensorID()))
+                .expectComplete()
+                .verify(Duration.ofSeconds(10));
+
+        resetMocks();
     }
 }

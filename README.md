@@ -8,6 +8,8 @@ Consult the table below to determine which version you need to use:
 
 | Spring Cloud | spring-cloud-stream-starter-request-reply | Spring Boot | sol-jcsmp |
 |--------------|-------------------------------------------|-------------|-----------|
+| 2025.0.0     | 5.3.5                                     | 3.5.8       | 10.29.0   |
+| 2025.0.0     | 5.3.4                                     | 3.5.8       | 10.29.0   |
 | 2025.0.0     | 5.3.3                                     | 3.5.8       | 10.29.0   |
 | 2025.0.0     | 5.3.2                                     | 3.5.8       | 10.29.0   |
 | 2025.0.0     | 5.3.1                                     | 3.5.6       | 10.28.1   |
@@ -27,7 +29,7 @@ To enable the request/reply functionality, please add the following section to y
 <dependency>
     <groupId>community.solace.spring.cloud</groupId>
     <artifactId>spring-cloud-stream-starter-request-reply</artifactId>
-    <version>5.3.3</version>
+    <version>5.3.5</version>
 </dependency>
 ```
 
@@ -599,23 +601,32 @@ More precisely:
 - If a service dies, any relations are forgotten and replies can no longer be related to request,
   potentially resulting in message loss.
 
-## External Links
-- [Spring Cloud Stream Solace Samples](https://solace.com/samples/solace-samples-spring/spring-cloud-stream/)
+### Reply duplication & requester-side deduplication
 
+In some operational scenarios (e.g. Solace in-place broker updates / short disconnects / reconnects) the same request can be sent twice and the replier may therefore produce **duplicate replies**.
 
-## Compatibility
+To make request-reply robust against such duplicate delivery, the requester keeps per-request bookkeeping and **deduplicates incoming reply messages by `replyIndex`**:
 
-Tested with:
+- If the requester receives multiple messages with the same `replyIndex`, only the first one is processed; later duplicates are ignored.
+- This also supports range indices such as `replyIndex="0-45"` (used when replies are grouped into an SDTStream). The entire grouped message will be consumed only once.
+- Terminal messages (finish/error) are always processed, even if they share a `replyIndex` with another message.
 
-| SpringBoot 	 | SpringCloudStream   |
-|:-------------|:--------------------|
-| 2.6.6      	 | 2021.0.1            |
-| 2.6.6      	 | 2021.0.3            |
-| 3.2.5        | 2023.0.1          	 |
-| 3.5.4        | 2025.0.0            |
+#### Dedup bitmap size limit (unknown / streaming totalReplies)
 
-<!-- reused links -->
+When `totalReplies` is not known yet (e.g. streaming / unknown-size reply patterns), the requester still deduplicates numeric `replyIndex` values, but it must place an upper bound on how large the internal bitmap can grow.
 
-[@Order in Spring @Baeldung]: https://www.baeldung.com/spring-order
-[Spring Cloud Stream Binders]: https://docs.spring.io/spring-cloud-stream/docs/current/reference/html/spring-cloud-stream.html#spring-cloud-stream-overview-binders
+You can configure this limit via:
 
+```properties
+spring.cloud.stream.requestreply.dedup.maxBitsWhenUnknown=100000
+```
+
+- Default: **100000** bits
+- Effect: any `replyIndex` (or range end) above this limit will not be deduplicated.
+
+#### Example log message
+
+```
+2023-10-04 10:00:00.000  INFO 12345 --- [nio-8080-exec-1] c.s.s.requestreply.examples.sending     : <<< MyRequest(location=livingroom) [correlationId=12345, replyTo=requestReply/response/solace/*/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d, ...]
+2023-10-04 10:00:00.000  INFO 12345 --- [nio-8080-exec-1] c.s.s.requestreply.examples.sending     : >>> SensorReading(foo=1337) [correlationId=12345, replyTo=requestReply/response/solace/*/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d, remainingReplies=0, ...]
+```

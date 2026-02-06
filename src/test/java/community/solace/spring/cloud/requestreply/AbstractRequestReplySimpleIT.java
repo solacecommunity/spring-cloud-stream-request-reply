@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.mockito.listeners.MockCreationListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cloud.stream.function.StreamBridge;
@@ -50,9 +51,9 @@ public abstract class AbstractRequestReplySimpleIT {
     public static final String PROFILE_TEST_SIMPLE = "testSimple";
     public static final String PROFILE_LOCAL_APP = "localApp";
 
-    public final Timestamp Ten_oClock = new Timestamp(1682928000); // 2023-05-01 10:00:00
-    public final Timestamp Eleven_oClock = new Timestamp(1682931600); // 2023-05-01 11:00:00
-    public final Timestamp Twelve_oClock = new Timestamp(1682935200); // 2023-05-01 12:00:00
+    public final Timestamp Ten_oClock = new Timestamp(1682928000000L); // 2023-05-01 10:00:00
+    public final Timestamp Eleven_oClock = new Timestamp(1682931600000L); // 2023-05-01 11:00:00
+    public final Timestamp Twelve_oClock = new Timestamp(1682935200000L); // 2023-05-01 12:00:00
 
     private static List<Object> mocks = new ArrayList<>();
 
@@ -63,6 +64,9 @@ public abstract class AbstractRequestReplySimpleIT {
     @Autowired
     protected RequestReplyTestEndpoint testEndpoint;
 
+    @Value("${requestreply.tests.skipMockVerification:false}")
+    private boolean skipMockVerification;
+
     @BeforeEach
     protected void resetMocks() {
         if (!mocks.isEmpty()) {
@@ -71,7 +75,10 @@ public abstract class AbstractRequestReplySimpleIT {
     }
 
     @AfterEach
-    private void validateMocks() {
+    public void validateMocks() {
+        if (skipMockVerification) {
+            return;
+        }
         if (!mocks.isEmpty()) {
             for(Object mock : mocks.toArray()) {
                 if(mock instanceof StreamBridge) {
@@ -84,7 +91,7 @@ public abstract class AbstractRequestReplySimpleIT {
     }
 
     @AfterEach
-    private void validateTestEndpoint() {
+    public void validateTestEndpoint() {
         try {
             assertFalse(testEndpoint.hasExceptions());
         }

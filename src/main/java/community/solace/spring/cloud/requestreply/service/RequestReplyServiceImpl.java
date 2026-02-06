@@ -453,6 +453,13 @@ public class RequestReplyServiceImpl implements RequestReplyService {
         if (handler == null) {
             requestReplyLogger.log(LOG, Level.INFO, "Received unexpected message or maybe too late response: {}", message);
         } else {
+            String replyIndex = messageHeaderSupportService.getReplyIndex(message);
+            // Allow terminal messages (EMPTY_RESPONSE) to share replyIndex with a previous message,
+            // because they don't carry a unique index but are required to complete/error the request.
+            if (StringUtils.hasText(replyIndex) && (totalReplies == null || totalReplies != EMPTY_RESPONSE) && handler.checkDuplicate(replyIndex)) {
+                return;
+            }
+
             if (totalReplies != null) {
                 if (totalReplies == UNKNOWN_SIZE) {
                     handler.setUnknownReplies();
@@ -493,18 +500,28 @@ public class RequestReplyServiceImpl implements RequestReplyService {
     private static List<Message<?>> parseMultiResponse(Message<SDTStream> message) {
         try {
             List<Message<?>> msgs = new ArrayList<>();
+
+            // When creating grouped (SDTStream) responses, we temporarily move the content-type to
+            // SpringHeaderParser.GROUPED_CONTENT_TYPE to prevent Spring from re-encoding the outer message.
+            // When unpacking, restore it so downstream conversion (e.g. JSON -> POJO) works as expected.
+            Map<String, Object> baseHeaders = new IntegrationMessageHeaderAccessor(message).toMap();
+            Object groupedContentType = baseHeaders.get(SpringHeaderParser.GROUPED_CONTENT_TYPE);
+            if (groupedContentType != null && baseHeaders.get(MessageHeaders.CONTENT_TYPE) == null) {
+                baseHeaders.put(MessageHeaders.CONTENT_TYPE, groupedContentType);
+            }
+
             while (message.getPayload().hasRemaining()) {
                 switch (message.getPayload().readString()) {
                     case "BytesMessage" -> msgs.add(
                             MessageBuilder
                                     .withPayload(message.getPayload().readBytes())
-                                    .copyHeaders(new IntegrationMessageHeaderAccessor(message).toMap())
+                                    .copyHeaders(baseHeaders)
                                     .build()
                     );
                     case "TextMessage", "XMLContentMessage" -> msgs.add(
                             MessageBuilder
                                     .withPayload(new String(message.getPayload().readBytes(), StandardCharsets.UTF_8))
-                                    .copyHeaders(new IntegrationMessageHeaderAccessor(message).toMap())
+                                    .copyHeaders(baseHeaders)
                                     .build()
                     );
                     case "StreamMessage", "MapMessage" -> throw new IllegalArgumentException(

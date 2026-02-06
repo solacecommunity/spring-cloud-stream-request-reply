@@ -44,9 +44,9 @@ public abstract class AbstractRequestReplyLoggingIT {
     public static final String PROFILE_TEST_LOGGING = "testLogging";
     public static final String PROFILE_LOCAL_APP = "localApp";
 
-    public final Timestamp Ten_oClock = new Timestamp(1682928000); // 2023-05-01 10:00:00
-    public final Timestamp Eleven_oClock = new Timestamp(1682931600); // 2023-05-01 11:00:00
-    public final Timestamp Twelve_oClock = new Timestamp(1682935200); // 2023-05-01 12:00:00
+    public final Timestamp Ten_oClock = new Timestamp(1682928000000L); // 2023-05-01 10:00:00
+    public final Timestamp Eleven_oClock = new Timestamp(1682931600000L); // 2023-05-01 11:00:00
+    public final Timestamp Twelve_oClock = new Timestamp(1682935200000L); // 2023-05-01 12:00:00
 
     private static List<Object> mocks = new ArrayList<>();
 
@@ -65,7 +65,7 @@ public abstract class AbstractRequestReplyLoggingIT {
     }
 
     @AfterEach
-    private void validateTestEndpoint() {
+    public void validateTestEndpoint() {
         try {
             assertFalse(testEndpoint.hasExceptions());
         }
