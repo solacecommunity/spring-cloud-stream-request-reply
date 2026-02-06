@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -18,6 +17,7 @@ import community.solace.spring.cloud.requestreply.service.header.parser.destinat
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.MessageErrorMessageParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.replyto.MessageReplyToParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.totalreplies.MessageTotalRepliesParser;
+import community.solace.spring.cloud.requestreply.service.header.parser.replyindex.MessageReplyIndexParser;
 import community.solace.spring.cloud.requestreply.service.messageinterceptor.ReplyWrappingInterceptor;
 import community.solace.spring.cloud.requestreply.util.MessageChunker;
 import org.apache.commons.lang3.tuple.Pair;
@@ -58,6 +58,9 @@ public class RequestReplyMessageHeaderSupportService {
     private List<MessageTotalRepliesParser> totalRepliesParsers;
 
     @Autowired
+    private List<MessageReplyIndexParser> replyIndexParsers;
+
+    @Autowired
     private List<MessageErrorMessageParser> errorMessageParsers;
 
     @Autowired
@@ -71,57 +74,86 @@ public class RequestReplyMessageHeaderSupportService {
 
     public @Nullable
     String getCorrelationId(Message<?> message) {
-        return message == null ? null
-                               : correlationIdHeaderParsers
-                       .stream()
-                       .map(p -> p.getCorrelationId(message))
-                       .filter(Objects::nonNull)
-                       .findFirst()
-                       .orElse(null);
+        if (message == null) {
+            return null;
+        }
+        for (MessageCorrelationIdParser p : correlationIdHeaderParsers) {
+            String value = p.getCorrelationId(message);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     public @Nullable
     String getDestination(Message<?> message) {
-        return message == null ? null
-                               : destinationHeaderParsers
-                       .stream()
-                       .map(p -> p.getDestination(message))
-                       .filter(Objects::nonNull)
-                       .findFirst()
-                       .orElse(null);
+        if (message == null) {
+            return null;
+        }
+        for (MessageDestinationParser p : destinationHeaderParsers) {
+            String value = p.getDestination(message);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     public @Nullable
     String getReplyTo(Message<?> message) {
-        return message == null ? null
-                               : replyToParsers
-                       .stream()
-                       .map(p -> p.getReplyTo(message))
-                       .filter(Objects::nonNull)
-                       .findFirst()
-                       .orElse(null);
+        if (message == null) {
+            return null;
+        }
+        for (MessageReplyToParser p : replyToParsers) {
+            String value = p.getReplyTo(message);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     public @Nullable
     Long getTotalReplies(Message<?> message) {
-        return message == null ? null
-                               : totalRepliesParsers
-                       .stream()
-                       .map(p -> p.getTotalReplies(message))
-                       .filter(Objects::nonNull)
-                       .findFirst()
-                       .orElse(null);
+        if (message == null) {
+            return null;
+        }
+        for (MessageTotalRepliesParser p : totalRepliesParsers) {
+            Long value = p.getTotalReplies(message);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    public @Nullable
+    String getReplyIndex(Message<?> message) {
+        if (message == null) {
+            return null;
+        }
+        for (MessageReplyIndexParser p : replyIndexParsers) {
+            String value = p.getReplyIndex(message);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     public @Nullable
     String getErrorMessage(Message<?> message) {
-        return message == null ? null
-                               : errorMessageParsers
-                       .stream()
-                       .map(p -> p.getErrorMessage(message))
-                       .filter(Objects::nonNull)
-                       .findFirst()
-                       .orElse(null);
+        if (message == null) {
+            return null;
+        }
+        for (MessageErrorMessageParser p : errorMessageParsers) {
+            String value = p.getErrorMessage(message);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     /**
@@ -137,7 +169,7 @@ public class RequestReplyMessageHeaderSupportService {
     @SafeVarargs
     public final <Q, A, T extends ThrowingFunction<Q, A>> Function<Message<Q>, Message<A>> wrap(T payloadFunction,
                                                                                                              Class<? extends Throwable>... applicationExceptions) {
-        return wrapWithBindingName(payloadFunction, (String) null, new HashMap<>(), applicationExceptions);
+        return wrapWithBindingName(payloadFunction, null, new HashMap<>(), applicationExceptions);
     }
 
     /**
@@ -254,9 +286,14 @@ public class RequestReplyMessageHeaderSupportService {
     }
 
     private <A> List<Message<A>> interceptResponses(String bindingName, List<Message<A>> messages) {
-        return messages.stream()
-                       .map(message -> replyWrappingInterceptor.interceptReplyWrappingPayloadMessage(message, bindingName))
-                       .toList();
+        if (messages == null || messages.isEmpty()) {
+            return messages;
+        }
+        List<Message<A>> out = new ArrayList<>(messages.size());
+        for (Message<A> message : messages) {
+            out.add(replyWrappingInterceptor.interceptReplyWrappingPayloadMessage(message, bindingName));
+        }
+        return out;
     }
 
     private <A, Q> List<Message<A>> wrapListSingleResponses(Message<Q> request, List<A> rawResponses, String bindingName) {

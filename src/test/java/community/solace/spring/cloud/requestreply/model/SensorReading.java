@@ -2,15 +2,19 @@ package community.solace.spring.cloud.requestreply.model;
 
 import java.sql.Timestamp;
 import java.util.Objects;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
 public class SensorReading {
-    private final Timestamp timestamp;
+    private Timestamp timestamp;
     private String sensorID;
+    @JsonAlias("value")
     private Double temperature;
+    @JsonAlias("unit")
     private BaseUnit baseUnit;
 
+
     public SensorReading() {
-        timestamp = new Timestamp(System.currentTimeMillis());
+        this.timestamp = new Timestamp(1682928000000L);
     }
 
     public SensorReading(Timestamp timestamp, String sensorID, Double temperature, BaseUnit baseUnit) {
@@ -22,6 +26,10 @@ public class SensorReading {
 
     public Timestamp getTimestamp() {
         return timestamp;
+    }
+
+    public void setTimestamp(Timestamp timestamp) {
+        this.timestamp = timestamp;
     }
 
     public String getSensorID() {
