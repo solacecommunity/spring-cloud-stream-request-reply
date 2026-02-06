@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 5.3.5 - 2026-02-05
+## 5.3.5 - 2026-02-06
 ### Fixed
 - Requester now deduplicates reply messages by `replyIndex` to prevent corrupt results when replies are duplicated (e.g. after broker disconnect/reconnect during in-place Solace broker updates).
 - Dedup bookkeeping is cleaned up when a request completes, errors, or times out.
