@@ -4,10 +4,10 @@
 
 package community.solace.spring.cloud.requestreply.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.solacesystems.jcsmp.JCSMPFactory;
 import com.solacesystems.jcsmp.SDTStream;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -41,7 +41,7 @@ final class TestSdtStreamSupport {
         }
         try {
             return OBJECT_MAPPER.writeValueAsBytes(payload);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             // Fallback to toString; tests shouldn't fail due to serialization.
             return String.valueOf(payload).getBytes(StandardCharsets.UTF_8);
         }
