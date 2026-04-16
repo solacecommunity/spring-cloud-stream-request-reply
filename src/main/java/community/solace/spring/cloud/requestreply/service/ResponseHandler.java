@@ -47,7 +47,7 @@ public class ResponseHandler {
 
     // Grow limit for unknown-size / streaming cases to avoid unbounded memory use on malformed indices.
     // For known totalReplies, numericReplyIndexBitSetSize will cap growth.
-    private static final int MAX_DEDUP_BITS_WHEN_UNKNOWN = Integer.getInteger(
+    private final int maxDedupBitsWhenUnknown = Integer.getInteger(
             "spring.cloud.stream.requestreply.dedup.maxBitsWhenUnknown",
             100_000
     );
@@ -101,7 +101,7 @@ public class ResponseHandler {
                 }
             } else {
                 // Unknown totalReplies (streaming): cap growth to avoid unbounded memory.
-                if (start >= MAX_DEDUP_BITS_WHEN_UNKNOWN) {
+                if (start >= maxDedupBitsWhenUnknown) {
                     return false;
                 }
             }
