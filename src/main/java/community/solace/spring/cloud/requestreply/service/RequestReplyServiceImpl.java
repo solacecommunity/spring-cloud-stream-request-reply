@@ -9,7 +9,7 @@ import community.solace.spring.cloud.requestreply.service.header.parser.SpringHe
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.RemoteErrorException;
 import community.solace.spring.cloud.requestreply.service.logging.RequestReplyLogger;
 import community.solace.spring.cloud.requestreply.service.messageinterceptor.RequestSendingInterceptor;
-import io.micrometer.context.ContextSnapshot;
+import io.micrometer.context.ContextExecutorService;
 import io.micrometer.context.ContextSnapshotFactory;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -53,7 +53,9 @@ public class RequestReplyServiceImpl implements RequestReplyService {
     static final long UNKNOWN_SIZE = -1;
 
     private static final Logger LOG = LoggerFactory.getLogger(RequestReplyServiceImpl.class);
-    private static final ThreadPoolExecutor REQUEST_REPLY_EXECUTOR = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+    private static final ThreadPoolExecutor WRAPPED_EXECUTOR = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+    private static final ExecutorService REQUEST_REPLY_EXECUTOR_SERVICE = ContextExecutorService
+            .wrap(WRAPPED_EXECUTOR, ContextSnapshotFactory.builder().build());
     private static final Map<String, ResponseHandler> PENDING_RESPONSES = new ConcurrentHashMap<>();
 
     @Autowired(required = false)
@@ -389,12 +391,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
             }
         });
 
-        // Capture the context snapshot at request time
-        ContextSnapshot contextSnapshot = ContextSnapshotFactory.builder()
-                                                                .build()
-                                                                .captureAll();
-
-        return CompletableFuture.runAsync(contextSnapshot.wrap(runnable), REQUEST_REPLY_EXECUTOR)
+        return CompletableFuture.runAsync(runnable, REQUEST_REPLY_EXECUTOR_SERVICE)
                                 .orTimeout(timeoutPeriod.toMillis(), TimeUnit.MILLISECONDS)
                                 .exceptionally(ex -> {
                                     responseHandler.abort();
@@ -414,7 +411,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                                 error.getClass(),
                                 error.getMessage());
                     }
-                }, REQUEST_REPLY_EXECUTOR);
+                }, REQUEST_REPLY_EXECUTOR_SERVICE);
     }
 
     private <T> T wrapTimeOutException(TimeoutSupplier<T> businessLogic) throws TimeoutException, RemoteErrorException {
@@ -537,6 +534,6 @@ public class RequestReplyServiceImpl implements RequestReplyService {
     }
 
     public int runningRequests() {
-        return REQUEST_REPLY_EXECUTOR.getActiveCount();
+        return WRAPPED_EXECUTOR.getActiveCount();
     }
 }
