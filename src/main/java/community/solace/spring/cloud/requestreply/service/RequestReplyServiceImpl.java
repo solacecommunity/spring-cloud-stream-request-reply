@@ -53,9 +53,9 @@ public class RequestReplyServiceImpl implements RequestReplyService {
     static final long UNKNOWN_SIZE = -1;
 
     private static final Logger LOG = LoggerFactory.getLogger(RequestReplyServiceImpl.class);
-    private static final ThreadPoolExecutor WRAPPED_EXECUTOR = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+    private static final ThreadPoolExecutor DELEGATE_EXECUTOR = (ThreadPoolExecutor) Executors.newCachedThreadPool();
     private static final ExecutorService REQUEST_REPLY_EXECUTOR_SERVICE = ContextExecutorService
-            .wrap(WRAPPED_EXECUTOR, ContextSnapshotFactory.builder().build());
+            .wrap(DELEGATE_EXECUTOR, ContextSnapshotFactory.builder().build());
     private static final Map<String, ResponseHandler> PENDING_RESPONSES = new ConcurrentHashMap<>();
 
     @Autowired(required = false)
@@ -534,6 +534,6 @@ public class RequestReplyServiceImpl implements RequestReplyService {
     }
 
     public int runningRequests() {
-        return WRAPPED_EXECUTOR.getActiveCount();
+        return DELEGATE_EXECUTOR.getActiveCount();
     }
 }
