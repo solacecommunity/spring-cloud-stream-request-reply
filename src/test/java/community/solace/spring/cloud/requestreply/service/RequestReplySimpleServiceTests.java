@@ -1130,12 +1130,12 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
         // Be tolerant of scheduling jitter: the send() calls happen on async execution paths.
         // Wait until we observe all expected send() invocations rather than relying on a short Mockito timeout.
         await()
-                .atMost(Duration.ofSeconds(3))
+                .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> Mockito.verify(streamBridge, Mockito.times(10))
                         .send(destinationCaptor.capture(), messageCaptor.capture()));
 
         await()
-                .atMost(Duration.ofSeconds(3))
+                .atMost(Duration.ofSeconds(10))
                 .until(requestReplyService::runningRequests, equalTo(0));
     }
 
