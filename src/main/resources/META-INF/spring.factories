@@ -1,2 +1,1 @@
 org.springframework.boot.env.EnvironmentPostProcessor=community.solace.spring.cloud.requestreply.env.ReplyTopicWithWildcardPropertySourceEnvironmentPostProcessor
-org.springframework.context.ApplicationContextInitializer=community.solace.spring.cloud.requestreply.service.RequestReplyAutoConfiguration
