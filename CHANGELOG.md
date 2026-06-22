@@ -4,10 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Fixed
+- The request/reply auto-configuration can now be excluded from sliced or focused tests (for example `@JsonTest`, or via `@ImportAutoConfiguration(exclude = RequestReplyAutoConfiguration.class)` / `spring.autoconfigure.exclude`). The per-binding reply consumers are no longer contributed by an `ApplicationContextInitializer` (which Spring applies to every context and which cannot be excluded), but by an `ImportBeanDefinitionRegistrar` that is only active when the auto-configuration itself is loaded. ([#8](https://github.com/solacecommunity/spring-cloud-stream-request-reply/issues/8))
+
 ## [6.1.0] - 2026-06-22
 ### Changed
 - Updated spring-boot-parent from 4.0.6 to 4.1.0
 - Updated spring-cloud-dependencies from 2025.1.1 to 2025.1.2
+
+## [6.0.2] - 2026-05-28
+### Fixed
+- Context propagation (e.g. the MDC carrying `traceId`/`spanId` used for tracing) is now applied to every stage of the asynchronous request/reply pipeline by wrapping the executor instead of wrapping individual tasks. Stages that an application chains onto the returned `CompletableFuture` now observe the same context as the original request, without having to capture a `ContextSnapshot` themselves. ([#50](https://github.com/solacecommunity/spring-cloud-stream-request-reply/issues/50))
 
 ## [6.0.1] - 2026-04-20
 ### Changed

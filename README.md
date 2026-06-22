@@ -594,6 +594,59 @@ logging:
     pattern: correlation=[${spring.application.name:},%X{traceId:-},%X{spanId:-}]
 ```
 
+#### Context propagation across asynchronous stages
+
+A request/reply call is processed on a dedicated executor, so the request is sent and the reply is
+awaited on a different thread than the caller. To keep tracing (and any other thread-local context
+such as the SLF4J `MDC`) consistent, this library propagates the
+[micrometer context](https://docs.micrometer.io/context-propagation/reference/) captured on the
+calling thread to that executor.
+
+Because the executor itself is wrapped (rather than each individual task), the context is restored
+for **every** stage of the internal pipeline as well as for stages that your application chains onto
+the returned `CompletableFuture`:
+
+```java
+MDC.put("traceId", "abc");
+
+requestReplyService
+        .requestReplyToTopic(request, topic, Response.class, Duration.ofSeconds(10))
+        .thenApply(response -> {
+            // MDC.get("traceId") is still "abc" here, even though this runs on an executor thread
+            return enrich(response);
+        });
+```
+
+You do not need to capture a `ContextSnapshot` yourself. As usual for micrometer context
+propagation, the relevant `ThreadLocalAccessor` (e.g. the one for the `MDC`, normally registered by
+your observability/tracing setup) must be present on the `ContextRegistry`.
+
+### Excluding the starter in tests
+
+Tests that do not need the request/reply functionality (for example a `@JsonTest` or a `@WebMvcTest`
+slice) do not load this starter's auto-configuration, so it is inactive there automatically.
+
+If you use a broader test that does pick up auto-configuration but you still want to switch the
+request/reply machinery off, exclude the auto-configuration like any other:
+
+```java
+@SpringBootTest
+@ImportAutoConfiguration(exclude = RequestReplyAutoConfiguration.class)
+class MyTest {
+    // ...
+}
+```
+
+or via configuration:
+
+```yaml
+spring:
+  autoconfigure:
+    exclude: community.solace.spring.cloud.requestreply.service.RequestReplyAutoConfiguration
+```
+
+When excluded, neither the request/reply service nor the per-binding reply consumers are registered.
+
 ## Known issues and Open Points
 
 ### Statefulness
