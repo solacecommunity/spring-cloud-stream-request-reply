@@ -1,13 +1,52 @@
-# `spring-cloud-stream-starter-request-reply`
+# Spring Cloud Stream Request/Reply
 
-## Description
+> Synchronous **request/reply** (and request / multi‑reply) semantics on top of
+> [Spring Cloud Stream](https://spring.io/projects/spring-cloud-stream) — primarily for the
+> [Solace PubSub+](https://github.com/SchweizerischeBundesbahnen/spring-cloud-stream-binder) binder, but pluggable for others.
 
-This Spring Boot starter adds request-reply support to
-[Spring Cloud Stream binders](https://docs.spring.io/spring-cloud-stream/reference/spring-cloud-stream/binders.html).
+[![Maven Central](https://img.shields.io/maven-central/v/community.solace.spring.cloud/spring-cloud-stream-starter-request-reply.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/community.solace.spring.cloud/spring-cloud-stream-starter-request-reply)
+[![Build](https://github.com/solacecommunity/spring-cloud-stream-request-reply/actions/workflows/validate.yml/badge.svg)](https://github.com/solacecommunity/spring-cloud-stream-request-reply/actions/workflows/validate.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Spring Cloud Version Compatibility
+## Overview
 
-Use the table below to pick the version you need:
+Message brokers are inherently asynchronous and fire‑and‑forget: you publish a message to a topic and
+you do not, by default, get an answer back. Many use cases, however, are naturally
+**request/reply** — "ask a question, wait for the answer" — for example querying the last sensor
+reading for a location, or fanning a query out to many responders and collecting their results.
+
+This Spring Boot starter adds that request/reply layer on top of Spring Cloud Stream. As the caller you
+get a plain, synchronous (or reactive) method call; under the hood the library:
+
+- generates a **correlation id** for the request,
+- publishes it to your request destination with a **reply‑to** topic that is unique to your process,
+- **correlates** the incoming reply(ies) back to the original call, and
+- returns the result to you (blocking, as a `CompletableFuture`, or as a reactive `Flux`) — or throws a
+  `TimeoutException` if no answer arrives within the timeout you specified.
+
+It supports both **single response** ("one question → one answer") and **request / multi‑reply**
+("one question → zero to N answers") patterns, with optional error propagation from the responder back
+to the caller.
+
+## Features
+
+- Synchronous request/reply as a single method call (`requestAndAwaitReplyToTopic` / `…ToBinding`).
+- Non‑blocking variants returning `CompletableFuture` or reactive `Flux`.
+- **Request / multi‑reply**: receive zero to N answers for one request.
+- Per‑request **timeouts** and automatic cleanup of in‑flight bookkeeping.
+- Automatic **correlation id** generation and reply‑to routing.
+- Helper methods (`wrap`, `wrapList`, `wrapFlux`) for the responder side that set the reply headers for
+  you and can **forward selected exceptions** back to the requester.
+- **Message grouping** for large multi‑reply result sets to reduce broker/header overhead.
+- **Reply deduplication** by `replyIndex` to survive duplicate delivery (e.g. broker reconnects).
+- **Micrometer context propagation** (tracing / MDC) across the internal asynchronous pipeline.
+- Pluggable **message / header parsers** to adapt to binders other than Solace.
+- Customizable **logging** and request/reply **message interceptors**.
+
+## Compatibility
+
+The starter builds on Spring Boot, Spring Cloud Stream and the Solace `sol-jcsmp` client. Pick the
+version that matches your Spring Cloud release train:
 
 | Spring Cloud | spring-cloud-stream-starter-request-reply | Spring Boot | sol-jcsmp |
 |--------------|-------------------------------------------|-------------|-----------|
@@ -28,11 +67,11 @@ Use the table below to pick the version you need:
 | 2023.0.2     | 5.1.3                                     | 3.3.0       | 10.23.0   |
 | 2023.0.1     | 5.1.2                                     | 3.2.5       | 10.23.0   |
 
-## Usage
+Java 17+ is required.
 
-### Dependency
+## Getting started
 
-To enable the request-reply functionality, add this dependency to your Maven `pom.xml`:
+### 1. Add the dependency
 
 ```xml
 <dependency>
@@ -42,28 +81,171 @@ To enable the request-reply functionality, add this dependency to your Maven `po
 </dependency>
 ```
 
-### Requester Side
+The starter is auto‑configured; adding it to the classpath is enough to expose the
+`RequestReplyService` and `RequestReplyMessageHeaderSupportService` beans. You still need a Spring
+Cloud Stream binder on the classpath (e.g. the Solace binder) and the usual binder configuration.
 
-To send a request, you need a binding and a topic pattern that matches the topic you send your requests to.
-The binding defines the binder, the content type and the reply address where the replier sends its response.
+### 2. Send a request (requester side)
 
-`spring.cloud.stream.requestreply.bindingMapping[n].binding` must:
+Autowire `RequestReplyService` and call it:
 
-- match an entry in `spring.cloud.function.definition`, and
-- match `spring.cloud.stream.bindings.XX-in-0`, where you define the binder, the content type and so on.
+```java
+SensorReading response = requestReplyService.requestAndAwaitReplyToTopic(
+        reading,                                            // the request payload
+        "last_value/temperature/celsius/" + location,       // where to send the request
+        SensorReading.class,                                // how to map the reply
+        Duration.ofSeconds(30)                              // give up after 30s
+);
+```
 
-`spring.cloud.stream.requestreply.bindingMapping[n].topicPatterns[m]`:
+[Full example](examples/request_reply_sending/src/main/java/community/solace/spring/cloud/requestreply/examples/sending/controller/RequestReplyController.java)
 
-- is a list of regular expressions that are matched against the destination of your requests.
-- If no pattern matches when you call `requestAndAwaitReplyToTopic()` or `requestReplyToTopic()`,
-  an `IllegalArgumentException` is thrown.
-- You do not need this setting if you only use `requestAndAwaitReplyToBinding()` or `requestReplyToBinding()`.
+### 3. Reply to a request (responder side)
 
-Remember to list this binding in `spring.cloud.function.definition` as well.
-Otherwise you never receive a response.
-You do not need to write a bean for it, because the library creates it for you.
+A responder is an ordinary Spring Cloud Function; wrap it with
+`RequestReplyMessageHeaderSupportService` so the correct reply headers are set automatically:
 
-#### Using Dynamic Topics
+```java
+@Bean
+public Function<Message<SensorRequest>, Message<SensorReading>> responseToRequest(
+        RequestReplyMessageHeaderSupportService headerSupport
+) {
+    return headerSupport.wrap(request -> {
+        SensorReading response = new SensorReading();
+        response.setTemperature(21.5);
+        return response;
+    });
+}
+```
+
+[Full example](examples/request_reply_response/src/main/java/community/solace/spring/cloud/requestreply/examples/response/config/PingPongConfig.java)
+
+The [`examples/`](examples) directory contains full runnable applications for the requester and
+responder sides, custom logging and custom reply‑to header handling.
+
+## How it works
+
+The request destination, the binding, and the reply‑to topic are wired together through three
+configuration keys. Understanding how they relate makes the configuration below straightforward.
+
+### Correlation
+
+Each request carries a **correlation id**. If your request is a plain payload, the library generates a
+random UUID; if it is already a `org.springframework.messaging.Message` that carries a correlation id,
+that id is reused. Every reply must echo the correlation id so the requester can match it to the
+pending call. Correlation ids and other metadata are read from messages by an ordered chain of
+**header parsers** (see [Extending to other binders](#extending-to-other-binders)).
+
+### Reply‑to and dynamic reply topics
+
+The requester tells the responder where to answer by putting a **reply‑to** topic into the outgoing
+message (`spring.cloud.stream.requestreply.bindingMapping[].replyTopic`). This topic should be unique
+per process so that replies come back only to the instance that asked. Best practice:
+
+- include the `HOSTNAME` to make debugging easier, and
+- include a **process‑stable UUID** via `${replyTopicWithWildcards|uuid}`. Do **not** use Spring's
+  `${random.uuid}` here — it produces a new UUID on every reference. `${replyTopicWithWildcards|uuid}`
+  is generated once at process start.
+
+![reply topic sending](doc/reply_topic_sending.png)
+
+Because a reply topic may contain `{placeholder}` segments that the responder substitutes before
+answering (see [Variable replacement](#variable-replacement)), the requester cannot subscribe to the
+literal topic it published. A `replyTopic` such as
+
+```
+requestReply/response/solace/{StagePlaceholder}/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d
+```
+
+arrives with `{StagePlaceholder}` already replaced by the responder — with `p-pineapple`, for
+example — so the requester has to listen on a **wildcarded** version of it:
+
+```
+requestReply/response/solace/*/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d
+```
+
+The `${replyTopicWithWildcards|<binding>|*}` placeholder does exactly that: it takes the `replyTopic`
+of the named binding and replaces every `{placeholder}` with the wildcard you pass (`*` for Solace).
+
+![reply topic replace wildcard](doc/replyTopicWithWildcards.png)
+
+### Routing a request through a binding
+
+When you call `requestAndAwaitReplyToTopic(...)` / `requestReplyToTopicReactive(...)`, the request topic
+is matched against every `bindingMapping[].topicPatterns` (regular expressions); the **first match**
+selects the binding.
+
+![topic to pattern](doc/requester_topic_to_pattern.png)
+
+The selected `bindingMapping[].binding` is used to look up `…-out-0` so the library knows which
+`binder`, `contentType`, etc. to use for sending. (When you send to a topic, any configured
+`…-out-0.destination` is ignored — the topic you passed wins.)
+
+![binding to -out-0](doc/binding_to_out-0.png)
+
+For each configured `bindingMapping`, the library also registers a reply consumer on `…-in-0` so that
+incoming replies are routed back to the pending request. You do **not** need to declare this consumer
+function yourself — but you **must** list the binding name in `spring.cloud.function.definition`.
+
+![consuming topic](doc/consuming_topic.png)
+
+### Timeouts
+
+Every method takes a `Duration timeoutPeriod`. The request is sent and the reply awaited on a shared
+executor; if no (final) reply arrives in time the pending request is aborted and a `TimeoutException`
+is raised. Bookkeeping for the request is always cleaned up on success, error or timeout.
+
+### Single vs. multi response
+
+- **Single response** — you expect exactly one answer. Use `requestAndAwaitReply*` (blocking) or
+  `requestReplyTo*` (returns a `CompletableFuture`).
+- **Multi response** — you expect zero to N answers. Use `requestReplyTo*Reactive`, which returns a
+  `Flux`. The responder signals completion with a terminal (empty) message and the total number of
+  replies, so the requester knows when the stream is done.
+
+For large multi‑reply result sets, replies can be **grouped**: instead of one broker message per
+answer, the responder packs several answers into a single message. Grouping is enabled automatically
+when your request is not a `Message`; if it is, switch grouping on with the `groupedMessages` header:
+
+```java
+Message<MyRequest> requestMsg = MessageBuilder.withPayload(request)
+        .setHeader(SpringHeaderParser.GROUPED_MESSAGES, true)
+        .build();
+```
+
+Unless you need separate headers per reply, prefer grouped messages: they make replies faster because
+they save message header overhead and broker resources. A group is flushed when any of these is
+reached:
+
+- the grouped message would exceed **1 MB**,
+- the group reaches **10 000** individual messages, or
+- the first message in the group is older than the responder's group timeout (default **200 ms**,
+  configurable in `wrapFlux`).
+
+### Reply deduplication
+
+In some operational scenarios (e.g. in‑place broker updates, short disconnects/reconnects) the same
+request may be delivered twice and the responder may therefore emit **duplicate replies**. The
+requester deduplicates incoming replies by `replyIndex`:
+
+- duplicate `replyIndex` values are processed only once (including range indices such as `"0-45"` used
+  for grouped replies),
+- terminal messages (finish/error) are always processed, even when they share a `replyIndex`.
+
+When `totalReplies` is not yet known (streaming/unknown‑size patterns), numeric `replyIndex` values are
+still deduplicated up to a bounded bitmap size (see [Configuration](#configuration)).
+
+## Configuration
+
+A complete requester + responder configuration ties four things together for each binding:
+
+1. the binding name appears in `spring.cloud.function.definition`,
+2. `spring.cloud.stream.requestreply.bindingMapping[]` defines the `replyTopic` (and optional
+   `topicPatterns`),
+3. `spring.cloud.stream.bindings.<binding>-in-0` defines where replies are consumed, and
+4. `spring.cloud.stream.bindings.<binding>-out-0` defines the binder used to send.
+
+### Dynamic topics (send to a topic chosen at call time)
 
 ```yaml
 spring:
@@ -86,32 +268,31 @@ spring:
           binder: solace
 ```
 
-##### Single Response
+Single response:
 
 ```java
-        SensorReading response = requestReplyService.requestAndAwaitReplyToTopic(
-                reading,
-                "requestReply/request/last_value/temperature/celsius/" + location,
-                SensorReading.class,
-                Duration.ofSeconds(30)
-        );
+SensorReading response = requestReplyService.requestAndAwaitReplyToTopic(
+        reading,
+        "requestReply/request/last_value/temperature/celsius/" + location,
+        SensorReading.class,
+        Duration.ofSeconds(30)
+);
 ```
 
-##### Multiple Responses
-
-New to reactive streams? Start with this
-[introduction to Flux and Project Reactor](https://www.baeldung.com/reactor-core).
+Multiple responses (reactive):
 
 ```java
-        Flux<SensorReading> responses = requestReplyService.requestReplyToTopicReactive(
-                reading,
-                "requestReply/request/last_value/temperature/celsius/" + location,
-                SensorReading.class,
-                Duration.ofSeconds(30)
-        );
+Flux<SensorReading> responses = requestReplyService.requestReplyToTopicReactive(
+        reading,
+        "requestReply/request/last_value/temperature/celsius/" + location,
+        SensorReading.class,
+        Duration.ofSeconds(30)
+);
 ```
 
-#### Using Static Topics
+### Static topics (send to the binding's configured destination)
+
+Omit `topicPatterns` and configure `…-out-0.destination`, then address the request by **binding name**:
 
 ```yaml
 spring:
@@ -133,257 +314,216 @@ spring:
           binder: solace
 ```
 
-##### Single Response
+```java
+SensorReading response = requestReplyService.requestAndAwaitReplyToBinding(
+        request,
+        "requestReplyRepliesDemo",
+        SensorReading.class,
+        Duration.ofSeconds(30)
+);
+```
+
+### Property reference
+
+All properties live under `spring.cloud.stream.requestreply`:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `bindingMapping[].binding` | String | Binding name. Must appear in `spring.cloud.function.definition` and match `spring.cloud.stream.bindings.<binding>-in-0`/`-out-0`. |
+| `bindingMapping[].replyTopic` | String | Reply‑to topic placed on outgoing requests. Should be unique per process (host + process‑stable UUID). Required. |
+| `bindingMapping[].topicPatterns` | List&lt;RegEx&gt; | Patterns matched against the request destination in `requestReplyTo*Topic*` calls. First match wins. Not needed if you only use the `…ToBinding` methods. |
+| `variableReplacements` | Map&lt;String,String&gt; | `{key}` placeholders replaced with the mapped value in request and reply topics. |
+| `copyHeadersOnWrap` | List&lt;String&gt; | Additional request headers to copy onto the reply when using the `wrap*` helpers. |
+
+Reply topic placeholders contributed by this starter (usable anywhere in the environment):
+
+| Placeholder | Meaning |
+|-------------|---------|
+| `${replyTopicWithWildcards\|uuid}` | A UUID generated **once** at process start (unlike `${random.uuid}`). |
+| `${replyTopicWithWildcards\|<binding>\|<wildcard>}` | The named binding's `replyTopic` with every `{placeholder}` replaced by `<wildcard>` (`*` for Solace). Use this for `…-in-0.destination`. |
+
+Dedup bitmap bound for unknown/streaming reply counts is read as a **JVM system property** (default
+`100000`), for example:
+
+```
+-Dspring.cloud.stream.requestreply.dedup.maxBitsWhenUnknown=100000
+```
+
+Any `replyIndex` (or range end) above this bound is not deduplicated.
+
+## API reference
+
+### `RequestReplyService`
+
+Autowire this bean to send requests. All methods are generic in the request type `Q` and response type
+`A`, take an `expectedClass` the reply is mapped to and a `Duration timeoutPeriod`, and have an overload
+that accepts a `Map<String, Object> additionalHeaders`.
+
+**Single response**
+
+| Method | Returns | Notes |
+|--------|---------|-------|
+| `requestAndAwaitReplyToTopic(request, requestDestination, expectedClass, timeout)` | `A` | Blocks. `requestDestination` is matched against `topicPatterns`. Any `-out-0.destination` is ignored. |
+| `requestAndAwaitReplyToBinding(request, bindingName, expectedClass, timeout)` | `A` | Blocks. Sends to the destination configured for the binding's `-out-0`. |
+| `requestReplyToTopic(request, requestDestination, expectedClass, timeout)` | `CompletableFuture<A>` | Non‑blocking. Use only when you need parallel request/reply on the same thread. |
+| `requestReplyToBinding(request, bindingName, expectedClass, timeout)` | `CompletableFuture<A>` | Non‑blocking. Use only when you need parallel request/reply on the same thread. |
+
+**Multi response (zero to N answers)**
+
+| Method | Returns | Notes |
+|--------|---------|-------|
+| `requestReplyToTopicReactive(request, requestDestination, expectedClass, timeout)` | `Flux<A>` | Request destination matched against `topicPatterns`. |
+| `requestReplyToBindingReactive(request, bindingName, expectedClass, timeout)` | `Flux<A>` | Sends to the binding's `-out-0` destination. |
+
+If your response type is a collection, send its elements as separate replies rather than one large
+payload — that keeps you below the broker's message size limit, and grouping will pack them again.
+
+The blocking methods declare `InterruptedException`, `TimeoutException` and `RemoteErrorException`;
+`RemoteErrorException` is thrown when the responder forwarded an application error (see below).
+
+Blocking example that collects a list of answers:
 
 ```java
-        SensorReading response = requestReplyService.requestAndAwaitReplyToBinding(
+@GetMapping(value = "/temperature/last_hour/{location}")
+public List<SensorReading> requestMultiReplySample(@PathVariable("location") final String location) {
+    MyRequest request = new MyRequest();
+    request.setLocation(location);
+
+    return requestReplyService.requestReplyToTopicReactive(
+                    request,
+                    "last_hour/temperature/celsius/" + location,
+                    SensorReading.class,
+                    Duration.ofSeconds(30)
+            )
+            .collectList()
+            .block();
+}
+```
+
+Non‑blocking example:
+
+```java
+requestReplyService.requestReplyToTopicReactive(
                 request,
-                "requestReplyRepliesDemo",
+                "last_hour/temperature/celsius/" + location,
                 SensorReading.class,
                 Duration.ofSeconds(30)
+        )
+        .subscribe(
+                sensorReading -> log.info("Got an answer: " + sensorReading),
+                throwable -> log.error("The request finished with error", throwable),
+                () -> log.info("The request finished")
         );
 ```
 
-##### Multiple Responses
+### `RequestReplyMessageHeaderSupportService`
 
-New to reactive streams? Start with this
-[introduction to Flux and Project Reactor](https://www.baeldung.com/reactor-core).
-
-```java
-        Flux<SensorReading> responses = requestReplyService.requestReplyToBindingReactive(
-                request,
-                "requestReplyRepliesDemo",
-                SensorReading.class,
-                Duration.ofSeconds(30)
-        );
-```
-
-[Full example](examples/request_reply_sending/src/main/java/community/solace/spring/cloud/requestreply/examples/sending/controller/RequestReplyController.java)
-
-#### How Everything Fits Together
-
-When you call `requestAndAwaitReplyToTopic()` or `requestReplyToTopic()`,
-the library matches the topic from your code against every
-`spring.cloud.stream.requestreply.bindingMapping[].topicPatterns`.
-The first hit wins.
-
-![topic to pattern](doc/requester_topic_to_pattern.png)
-
-The `spring.cloud.stream.requestreply.bindingMapping[].binding` of the matching section is looked up in
-`spring.cloud.stream.bindings[]`, and the library always uses the `-out-0` entry.
-This tells the request-reply service which `binder`, `contentType` and so on to use.
-
-![binding to -out-0](doc/binding_to_out-0.png)
-
-The `spring.cloud.stream.requestreply.bindingMapping[].replyTopic` of the matching section goes into the outgoing
-message. It tells the other service where you expect the answer.
-
-This topic should be unique per process. As a best practice, put the following into it:
-
-- The `HOSTNAME`, to make debugging a little easier.
-- A UUID, so that your inbox topic is unique.
-  Do not use Spring's `${random.uuid}`, because it creates a new UUID on every call.
-  Use `${replyTopicWithWildcards|uuid}` instead. It gives you one fixed UUID, created when the process starts.
-
-![reply topic sending](doc/reply_topic_sending.png)
-
-The request-reply service walks through `spring.cloud.stream.requestreply.bindingMapping`
-and creates a bean that consumes the messages arriving on `-in-0.destination`, using the configured binder.
-
-![consuming topic](doc/consuming_topic.png)
-
-As soon as you use the `{StagePlaceholder}` feature, you can no longer listen on a fixed topic such as:
-
-```
-requestReply/response/solace/{StagePlaceholder}/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d
-```
-
-The reason is that the other side replaces `{StagePlaceholder}` before it answers, for example with `p-pineapple`.
-So you have to listen on:
-
-```
-requestReply/response/solace/*/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d
-```
-
-`${replyTopicWithWildcards|requestReplyRepliesDemo|*}` does that for you.
-It takes the `replyTopic` of the `bindingMapping` section named by the first parameter
-and replaces every `{someThing}` with the wildcard given as the second parameter, here `*`.
-
-![reply topic replace wildcard](doc/replyTopicWithWildcards.png)
-
-### Replier Side
-
-You do not need this library just to answer a message.
-You can also send the response to the topic from the reply-to header yourself
-and copy all headers from the request to the response.
-
-Still, the methods `RequestReplyMessageHeaderSupportService.wrap`,
-`RequestReplyMessageHeaderSupportService.wrapList` and `RequestReplyMessageHeaderSupportService.wrapFlux`
-help you build that response: they set the message headers for you and resolve variables in dynamic topics.
-
-By default, the wrapping methods set the correlation ID and the reply destination header.
-For multi-response replies, they also set the `totalReplies` and `replyIndex` headers.
-To copy further headers from the request, list them in `spring.cloud.stream.requestreply.copyHeadersOnWrap`:
+For a pure responder you do not strictly need this library — you could copy the reply‑to header and
+correlation id onto your response yourself. The `wrap*` helpers do this for you: they set the
+correlation id and reply destination header, substitute `{placeholder}` variables, and (for multi
+responses) set the `totalReplies` and `replyIndex` headers. Additional request headers can be copied
+onto the reply via `spring.cloud.stream.requestreply.copyHeadersOnWrap`:
 
 ```properties
 spring.cloud.stream.requestreply.copyHeadersOnWrap=encoding,yetAnotherHeader
 ```
 
-The examples below show how to use the wrapping methods.
-
-#### Single Response
+**Single response** — return `null` from the wrapped function to drop the message (no reply sent):
 
 ```java
-public class PingPongConfig {
-  @Bean
-  public Function<Message<SensorRequest>, Message<SensorReading>> responseToRequest(
-          RequestReplyMessageHeaderSupportService headerSupport
-  ) {
-    return headerSupport.wrap((request) -> {
-      SensorReading response = new SensorReading();
-      response.setFoo(1337);
-
-      return response;
+@Bean
+public Function<Message<SensorRequest>, Message<SensorReading>> responseToRequest(
+        RequestReplyMessageHeaderSupportService headerSupport
+) {
+    return headerSupport.wrap(request -> {
+        SensorReading response = new SensorReading();
+        response.setTemperature(21.5);
+        return response;
     });
-  }
 }
 ```
 
 [Full example](examples/request_reply_response/src/main/java/community/solace/spring/cloud/requestreply/examples/response/config/PingPongConfig.java)
 
-#### Multiple Responses, Functional
-
-Use this style when you know all responses up front.
+**Multiple responses, known size** (`wrapList`) — pass the output binding name so grouping and content
+type can be resolved:
 
 ```java
-public class PingPongConfig {
-  @Bean
-  public Function<Message<SensorRequest>, List<Message<SensorReading>>> responseMultiToRequestKnownSizeSolace(
-          RequestReplyMessageHeaderSupportService headerSupport
-  ) {
-    return headerSupport.wrapList((request) -> {
-      List<SensorReading> responses = new ArrayList<>();
-      responses.add(new SensorReading());
-      // ....
-
-      return responses;
-    }, "responseMultiToRequestKnownSizeSolace-out-0");
-  }
+@Bean
+public Function<Message<SensorRequest>, List<Message<SensorReading>>> responseMultiToRequestKnownSize(
+        RequestReplyMessageHeaderSupportService headerSupport
+) {
+    return headerSupport.wrapList(request -> {
+        List<SensorReading> responses = new ArrayList<>();
+        // ... add responses ...
+        return responses;
+    }, "responseMultiToRequestKnownSize-out-0");
 }
 ```
 
-[Full example](examples/request_reply_response/src/main/java/community/solace/spring/cloud/requestreply/examples/response/config/PingMultiPongConfig.java)
-
-#### Multiple Responses, Reactive
-
-Use this style when you do not know in advance how many responses there will be.
+**Multiple responses, streaming/unknown size** (`wrapFlux`) — emit 0 to N responses through the sink:
 
 ```java
-public class PingPongConfig {
-  @Bean
-  public Function<Flux<Message<SensorRequest>>, Flux<Message<SensorReading>>> responseMultiToRequestRandomSizeSolace(
-          RequestReplyMessageHeaderSupportService headerSupport
-  ) {
+@Bean
+public Function<Flux<Message<SensorRequest>>, Flux<Message<SensorReading>>> responseMultiToRequestRandomSize(
+        RequestReplyMessageHeaderSupportService headerSupport
+) {
     return headerSupport.wrapFlux((request, responseSink) -> {
-      try {
-        while (yourBusinessLogic) { // Your business logic can push 0 to N responses.
-          responseSink.next(response);
+        try {
+            while (moreData) {                 // your business logic can submit 0..N responses
+                responseSink.next(response);
+            }
+            responseSink.complete();
+        } catch (Exception e) {
+            responseSink.error(new IllegalArgumentException("Business error message", e));
         }
-        responseSink.complete();
-      } catch (Exception e) {
-        responseSink.error(new IllegalArgumentException("Business error message", e));
-      }
-    }, "responseMultiToRequestRandomSizeSolace-out-0");
-  }
+    }, "responseMultiToRequestRandomSize-out-0");
 }
 ```
 
-[Full example](examples/request_reply_response/src/main/java/community/solace/spring/cloud/requestreply/examples/response/config/PingMultiPongConfig.java)
+[Full example for both multi‑response styles](examples/request_reply_response/src/main/java/community/solace/spring/cloud/requestreply/examples/response/config/PingMultiPongConfig.java)
 
-#### Error Handling
-
-You may want to forward errors to the requester.
-To do so, pass one or more exception classes to the wrapping method.
-Only these exceptions are sent back:
+**Forwarding errors to the requester.** Pass one or more exception classes to the `wrap*` helpers; if
+the wrapped function throws a matching exception, the error message is sent back to the requester, which
+then throws a `RemoteErrorException` (for streaming replies the error terminates the `Flux`):
 
 ```java
-public class PingPongConfig {
-  @Bean
-  public Function<Message<SensorRequest>, Message<SensorReading>> responseToRequest(
-          RequestReplyMessageHeaderSupportService headerSupport
-  ) {
-    return headerSupport.wrap((request) -> {
-      SensorReading response = new SensorReading();
-      response.setFoo(1337);
-
-      return response;
-    }, MyBusinessException.class, SomeOtherException.class);
-  }
-}
+return headerSupport.wrap(request -> {
+    // ...
+    return response;
+}, MyBusinessException.class, SomeOtherException.class);
 ```
 
-Bean validation errors and JSON parsing errors cannot be returned to the requester out of the box.
-You have to run that validation yourself, for example:
+> Input validation and JSON parsing errors cannot be forwarded automatically — perform validation
+> inside the wrapped function (e.g. with a `DataBinder`/`Validator`) and throw one of your forwarded
+> exception types.
 
-```java
-public class PingPongConfig {
-  @Qualifier("mvcValidator")
-  private final Validator validator;
+## Advanced usage
 
-  private final ObjectMapper objectMapper;
+### Variable replacement
 
-  @Bean
-  public Function<Message<String>, Message<SensorReading>> responseToRequest(
-          RequestReplyMessageHeaderSupportService headerSupport
-  ) {
-    return headerSupport.wrap((rawRequest) -> {
-      SensorReading request = objectMapper.readValue(rawRequest.getPayload(), SensorReading.class);
-      final DataBinder db = new DataBinder(request);
-      db.setValidator(validator);
-      db.validate();
-
-
-      SensorReading response = new SensorReading();
-      response.setFoo(1337);
-
-      return response;
-    }, MyBusinessException.class, SomeOtherException.class);
-  }
-}
-```
-
-#### Variable Replacement
-
-The requester may put placeholders into the reply destination.
-You have to replace them before you send the response.
-
-This is useful when several instances can answer a request, for example for load balancing
-or for redundancy across data centers. Knowing which instance answered makes debugging easier.
-
-For example, the reply destination header of the request may contain the placeholder `{StagePlaceholder}`.
-The configuration below replaces that placeholder with a string that identifies the instance:
+A requester may embed `{placeholder}` segments in the reply destination (useful, for example, to encode
+which instance/data center should process a load‑balanced reply). The responder substitutes them before
+answering:
 
 ```yaml
 spring:
   cloud:
-    function:
-      definition: requestReplyRepliesDemo
     stream:
       requestreply:
         variableReplacements:
           "{StagePlaceholder}": ${RCS_ENV_ROLE}-${RCS_CLUSTER}
 ```
 
-These `variableReplacements` are applied to request topics and to reply topics.
+`variableReplacements` are applied to both request and reply topics.
 
-#### Custom Logging
+### Custom logging
 
-If the built-in logging does not fit your needs, define your own logging bean:
+Provide a `RequestReplyLogger` bean to override the default logging:
 
 ```java
 @Configuration
 public class CustomizedLoggerConfig {
-
     @Bean
     public RequestReplyLogger requestReplyLogger() {
         return new CustomizedLogger();
@@ -391,11 +531,8 @@ public class CustomizedLoggerConfig {
 }
 ```
 
-An example implementation of the logger interface:
-
 ```java
 public class CustomizedLogger implements RequestReplyLogger {
-
     @Override
     public void logRequest(Logger logger, Level suggestedLevel, String suggestedLogMessage, Message<?> message) {
         logger.atLevel(Level.DEBUG).log("<<< {} {}", message.getPayload(), message.getHeaders());
@@ -403,8 +540,7 @@ public class CustomizedLogger implements RequestReplyLogger {
 
     @Override
     public void logReply(Logger logger, Level suggestedLevel, String suggestedLogMessage, long remainingReplies, Message<?> message) {
-        String payloadString = new String((byte[])message.getPayload());
-        logger.atLevel(Level.DEBUG).log(">>> {} {} remaining replies: {}", payloadString, message.getHeaders(), remainingReplies);
+        logger.atLevel(Level.DEBUG).log(">>> {} remaining replies: {}", message.getPayload(), remainingReplies);
     }
 
     @Override
@@ -414,227 +550,87 @@ public class CustomizedLogger implements RequestReplyLogger {
 }
 ```
 
-A complete example application is available under `examples/customized_logging`.
+The logger above produces output along these lines:
 
-### Custom Message Interception
-
-On the requester side, define a bean of type `RequestSendingInterceptor` to change a request message
-before it is sent. A complete example is available under `examples/customized_reply_to_header_sending`.
-
-On the replier side, define a bean of type `ReplyWrappingInterceptor` to change a message while it is wrapped.
-A complete example is available under `examples/customized_reply_to_header_response`.
-
-### API
-
-#### `RequestReplyService`
-
-Autowire `RequestReplyService` to use the request-reply functionality. It offers the following methods.
-
-##### For a Single Response
-
-Use these methods when you expect exactly one response.
-
-- `A requestAndAwaitReplyToTopic(Q request, String requestDestination, Class<A> expectedResponseClass, Duration timeoutPeriod)`
-  sends the request to the given destination, waits for the response and maps it to the given class.
-  A configured `-out-0.destination` is ignored.
-
-- `A requestAndAwaitReplyToBinding(Q request, String bindingName, Class<A> expectedResponseClass, Duration timeoutPeriod)`
-  sends the request to the destination configured for the `-out-0` of this binding,
-  waits for the response and maps it to the given class.
-
-- `CompletableFuture<A> requestReplyToTopic(Q request, String requestDestination, Class<A> expectedClass, Duration timeoutPeriod)`
-  sends the request to the given destination.
-  It returns a future that maps the response to the given class.
-  A configured `-out-0.destination` is ignored.
-  Use this method only in rare cases, when you need several request-reply calls to run in parallel on the same thread.
-
-- `CompletableFuture<A> requestReplyToBinding(Q request, String bindingName, Class<A> expectedClass, Duration timeoutPeriod)`
-  sends the request to the destination configured for the `-out-0` of this binding.
-  It returns a future that maps the response to the given class.
-  Use this method only in rare cases, when you need several request-reply calls to run in parallel on the same thread.
-
-##### For Multiple Responses
-
-Use these methods when you expect zero to N responses.
-
-- `Flux<A> requestReplyToTopicReactive(Q request, String requestDestination, Class<A> expectedClass, Duration timeoutPeriod)`
-  sends the request to the given destination.
-  It returns a reactive stream that maps the responses to the given class.
-  If your response type is an array, send the elements as separate messages.
-  This keeps you below the message size limit.
-
-- `Flux<A> requestReplyToBindingReactive(Q request, String bindingName, Class<A> expectedClass, Duration timeoutPeriod)`
-  sends the request to the destination configured for the `-out-0` of this binding.
-  It returns a reactive stream that maps the responses to the given class.
-  If your response type is an array, send the elements as separate messages.
-  This keeps you below the message size limit.
-
-##### Example: Blocking
-
-A blocking request-reply call that returns a list of answers.
-
-```java
-    @GetMapping(value = "/temperature/last_hour/{location}")
-    public List<SensorReading> requestMultiReplySample(
-            @PathVariable("location") final String location
-    ) {
-        MyRequest request = new MyRequest();
-        request.setLocation(location);
-
-        return requestReplyService.requestReplyToTopicReactive(
-                        request,
-                        "last_hour/temperature/celsius/" + location,
-                        SensorReading.class,
-                        Duration.ofSeconds(30)
-                )
-                .collectList()
-                .block();
-    }
+```
+2023-10-04 10:00:00.000  INFO 12345 --- [nio-8080-exec-1] c.s.s.requestreply.examples.sending     : <<< MyRequest(location=livingroom) [correlationId=12345, replyTo=requestReply/response/solace/*/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d, ...]
+2023-10-04 10:00:00.000  INFO 12345 --- [nio-8080-exec-1] c.s.s.requestreply.examples.sending     : >>> SensorReading(foo=1337) [correlationId=12345, replyTo=requestReply/response/solace/*/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d, remainingReplies=0, ...]
 ```
 
-##### Example: Non-Blocking
+See [`examples/customized_logging`](examples/customized_logging) for a full application.
 
-The same call, but the calling thread is not blocked. Every answer is handled as soon as it arrives.
+### Message interceptors
 
-```java
-    @GetMapping(value = "/temperature/last_hour/{location}")
-    public void requestMultiReplySample(
-            @PathVariable("location") final String location
-    ) {
-        MyRequest request = new MyRequest();
-        request.setLocation(location);
+- Implement `RequestSendingInterceptor` (bean name `requestSendingInterceptor`) to modify a request
+  message before it is sent — for example to add or rewrite headers. See
+  [`examples/customized_reply_to_header_sending`](examples/customized_reply_to_header_sending).
+- Implement `ReplyWrappingInterceptor` (bean name `replyWrappingInterceptor`) to modify a reply while it
+  is being wrapped. Implement all three callbacks (payload, finishing/empty and error messages). See
+  [`examples/customized_reply_to_header_response`](examples/customized_reply_to_header_response).
 
-        requestReplyService.requestReplyToTopicReactive(
-                        request,
-                        "last_hour/temperature/celsius/" + location,
-                        SensorReading.class,
-                        Duration.ofSeconds(30)
-                )
-                .subscribe(
-                        sensorReading -> log.info("Got an answer: " + sensorReading),
-                        throwable -> log.error("The request was finished with error", throwable),
-                        () -> log.info("The request was finished")
-                );
-    }
-```
+Both interfaces receive the binding name so you can behave differently per binding. If you do not
+provide your own, no‑op implementations are auto‑configured.
 
-##### Receiving Many Answers
+### Extending to other binders
 
-If your request is an `org.springframework.messaging.Message`, you decide whether every response travels
-as its own message or whether several responses are grouped into one message.
+The starter works out of the box with the
+[Solace binder](https://github.com/SchweizerischeBundesbahnen/spring-cloud-stream-binder) and the
+[TestSupportBinder](https://github.com/spring-cloud/spring-cloud-stream/blob/main/spring-cloud-stream-test-support/src/main/java/org/springframework/cloud/stream/test/binder/TestSupportBinder.java),
+and can be extended to other binders by providing message / header parser beans.
 
-Turn grouping on with the `groupedMessages` header:
+When receiving a message the library must be able to determine the `correlationId`, `destination`,
+`replyTo`, `totalReplies` and `replyIndex`. Unless a binder adheres to Spring messaging standards, add
+parser beans and order them with [`@Order`](https://www.baeldung.com/spring-order) (lower value =
+higher priority).
 
-```java
-Message<MyRequest> requestMsg = MessageBuilder.withPayload(request)
-        .setHeader(SpringHeaderParser.GROUPED_MESSAGES, true)
-        .build();
-```
+Parser interfaces (root interface parses a `Message`, the `…Header…` variant parses `MessageHeaders`):
 
-If your request is not a `Message`, the library sets `groupedMessages=true` for you.
+- `MessageCorrelationIdParser` / `MessageHeaderCorrelationIdParser`
+- `MessageDestinationParser` / `MessageHeaderDestinationParser`
+- `MessageReplyToParser` / `MessageHeaderReplyToParser`
+- `MessageTotalRepliesParser` / `MessageHeaderTotalRepliesParser`
+- `MessageReplyIndexParser` / `MessageHeaderReplyIndexParser`
+- `MessageErrorMessageParser` / `MessageHeaderErrorMessageParser`
 
-Unless you need separate headers per reply, prefer grouped messages.
-Grouping makes replies faster, because it saves message header overhead and broker resources.
+Bundled implementations, in priority order:
 
-Messages are grouped until one of these limits is reached:
+| Parser | Order | Provides |
+|--------|-------|----------|
+| `SolaceHeaderParser` | 200 | correlationId, destination, replyTo for the Solace binder |
+| `SpringCloudStreamHeaderParser` | 10000 | destination, totalReplies for Spring Cloud Stream headers |
+| `SpringIntegrationHeaderParser` | 20000 | correlationId for Spring Integration headers |
+| `BinderHeaderParser` | 30000 | destination for Spring Cloud Stream binder headers |
+| `SpringHeaderParser` | 40000 | replyTo, totalReplies, replyIndex, errorMessage for Spring Framework headers |
+| `HttpHeaderParser` | `LOWEST_PRECEDENCE` | correlationId per the HTTP header standard |
 
-- The grouped message grows beyond 1 MB.
-- The group holds 10,000 individual messages.
-- The first message of the group is older than 200 ms.
-  The replier can configure a different timeout in `wrapFlux`.
+### Tracing and context propagation
 
-#### `RequestReplyMessageHeaderSupportService`
-
-A service that only answers requests can still use this library.
-It provides helper methods that wrap your response function and set the destination header of the message.
-Spring Cloud Function then routes the response for you. For example:
-
-```java
-    @Bean
-    public Function<Message<String>, Message<String>> reverse(RequestReplyMessageHeaderSupportService headerSupport) {
-        return headerSupport.wrap((value) -> new StringBuilder(value).reverse().toString());
-    }
-```
-
-Return `null` from the wrapped function to drop the message.
-
-## Extensibility
-
-This starter works with the [Solace binder](https://github.com/SchweizerischeBundesbahnen/spring-cloud-stream-binder)
-and with the [TestSupportBinder](https://github.com/spring-cloud/spring-cloud-stream/blob/main/spring-cloud-stream-test-support/src/main/java/org/springframework/cloud/stream/test/binder/TestSupportBinder.java).
-You can extend it for other binders by providing the beans described below.
-
-### Message and Message Header Parsers
-
-For every incoming message, the library needs the correlation ID, the destination and the reply-to property.
-A binder that does not follow the Spring messaging standards, or that uses different headers for performance
-reasons, needs its own message parsers or message header parsers.
-Annotate the bean with `@Order` to control its priority
-(see [@Order in Spring at Baeldung](https://www.baeldung.com/spring-order)).
-
-The starter ships these parser interfaces:
-
-- `MessageCorrelationIdParser` — root interface, reads the correlation ID from an incoming message
-  - `MessageHeaderCorrelationIdParser` — reads the correlation ID from the message's `MessageHeaders`
-- `MessageDestinationParser` — root interface, reads the destination from an incoming message
-  - `MessageHeaderDestinationParser` — reads the destination from the message's `MessageHeaders`
-- `MessageReplyToParser` — root interface, reads the reply destination from an incoming message
-  - `MessageHeaderReplyToParser` — reads the reply destination from the message's `MessageHeaders`
-- `MessageTotalRepliesParser` — root interface, reads the total number of replies from an incoming multi-response message
-  - `MessageHeaderTotalRepliesParser` — reads the total number of replies from the message's `MessageHeaders`
-
-It also ships these implementations:
-
-- `SolaceHeaderParser` _(order 200)_
-  implements `MessageHeaderCorrelationIdParser`, `MessageHeaderDestinationParser` and `MessageHeaderReplyToParser`
-  for the Solace binder.
-- `SpringCloudStreamHeaderParser` _(order 10000)_
-  implements `MessageHeaderDestinationParser` and `MessageTotalRepliesParser` for standard Spring Cloud Stream headers.
-- `SpringIntegrationHeaderParser` _(order 20000)_
-  implements `MessageHeaderCorrelationIdParser` for standard Spring Integration headers.
-- `BinderHeaderParser` _(order 30000)_
-  implements `MessageHeaderDestinationParser` for standard Spring Cloud Stream binder headers.
-- `SpringHeaderParser` _(order 40000)_
-  implements `MessageHeaderReplyToParser` for Spring Framework message header standards.
-- `HttpHeaderParser` _(order `LOWEST_PRECEDENCE`)_
-  implements `MessageHeaderCorrelationIdParser` for the HTTP header standard.
-
-## Compatibility
-
-### Tracing
-
-The library forwards the Micrometer trace ID, so the spans of requester and replier end up in the same trace.
-
-No extra configuration is needed. Just set up tracing as usual:
+The library forwards the Micrometer trace id from requester to responder so all spans share one trace.
+No special configuration is required beyond your normal tracing setup, e.g.:
 
 ```yaml
 spring:
   application:
     name: the-name-of-your-micro-service
 management:
-    zipkin:
-        tracing:
-            endpoint: https://demo-zipkin.xxxx.net/api/v2/spans
-            export:
-                enabled: true
+  zipkin:
     tracing:
-        sampling:
-            probability: 1.0
+      endpoint: https://demo-zipkin.xxxx.net/api/v2/spans
+      export:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
 logging:
-    pattern: correlation=[${spring.application.name:},%X{traceId:-},%X{spanId:-}]
+  pattern: correlation=[${spring.application.name:},%X{traceId:-},%X{spanId:-}]
 ```
 
-#### Context Propagation Across Asynchronous Stages
-
-A request-reply call runs on a dedicated executor. The request is sent and the reply is awaited on a different
-thread than the caller. To keep tracing and other thread-local context (such as the SLF4J `MDC`) consistent,
-the library propagates the
-[Micrometer context](https://docs.micrometer.io/context-propagation/reference/) from the calling thread
-to that executor.
-
-The library wraps the executor itself, not each single task. Therefore the context is restored for **every**
-stage of the internal pipeline, and also for stages that your application chains onto the returned
-`CompletableFuture`:
+A request/reply call is processed on a dedicated executor, so the request is sent and the reply awaited
+on a different thread than the caller. To keep tracing (and any other thread‑local context such as the
+SLF4J `MDC`) consistent, the library propagates the
+[Micrometer context](https://docs.micrometer.io/context-propagation/reference/) captured on the calling
+thread. Because the executor itself is wrapped, the context is restored for **every** stage of the
+internal pipeline as well as for stages your application chains onto the returned `CompletableFuture`:
 
 ```java
 MDC.put("traceId", "abc");
@@ -647,16 +643,15 @@ requestReplyService
         });
 ```
 
-You do not need to capture a `ContextSnapshot` yourself. As always with Micrometer context propagation,
-the matching `ThreadLocalAccessor` must be registered on the `ContextRegistry`.
-For the `MDC`, your observability or tracing setup normally registers it.
+You do not need to capture a `ContextSnapshot` yourself; the relevant `ThreadLocalAccessor` (e.g. the
+one for the `MDC`) must be registered on the `ContextRegistry`, as is usual for Micrometer context
+propagation.
 
-### Excluding the Starter in Tests
+### Excluding the starter in tests
 
-Tests that do not need request-reply, for example a `@JsonTest` or a `@WebMvcTest` slice,
-do not load the auto-configuration of this starter. There it is inactive by default.
-
-In a wider test that does load auto-configuration, exclude it like any other auto-configuration:
+Sliced tests (e.g. `@JsonTest`, `@WebMvcTest`) do not load this starter's auto‑configuration, so it is
+inactive there automatically. If a broader test picks up auto‑configuration but you want request/reply
+switched off, exclude it like any other auto‑configuration:
 
 ```java
 @SpringBootTest
@@ -666,7 +661,7 @@ class MyTest {
 }
 ```
 
-Or through configuration:
+or via configuration:
 
 ```yaml
 spring:
@@ -674,52 +669,51 @@ spring:
     exclude: community.solace.spring.cloud.requestreply.service.RequestReplyAutoConfiguration
 ```
 
-When excluded, neither the request-reply service nor the reply consumers of the bindings are registered.
+When excluded, neither the request/reply service nor the per‑binding reply consumers are registered.
 
-## Known Issues and Open Points
+## Known issues and limitations
 
 ### Statefulness
 
-The starter keeps the relation between request and reply in memory. It is therefore neither fail-safe nor scalable.
+Request/reply relations are kept **in memory**, so this starter is neither fail‑safe nor horizontally
+scalable for a single request:
 
-In detail:
+- if one instance sends a request and another receives the reply, they cannot be correlated;
+- if an instance dies, its in‑flight relations are lost and the corresponding replies can no longer be
+  matched, potentially resulting in message loss.
 
-- If one instance of the service sends a request and another instance receives the response,
-  the two cannot be related.
-- If a service dies, all relations are lost. Replies can no longer be matched to their request,
-  which can mean lost messages.
+### Duplicate replies
 
-### Reply Duplication and Requester-Side Deduplication
+Duplicate delivery (e.g. after a broker reconnect during an in‑place update) can cause duplicate replies.
+The requester mitigates this by deduplicating on `replyIndex` (see
+[Reply deduplication](#reply-deduplication)); the bound for unknown/streaming reply counts is
+configurable via the `spring.cloud.stream.requestreply.dedup.maxBitsWhenUnknown` JVM system property.
 
-In some situations, for example a Solace in-place broker update with a short disconnect and reconnect,
-the same request is sent twice. The replier then produces **duplicate replies**.
+## Building and testing
 
-To stay robust against such duplicates, the requester keeps bookkeeping per request
-and **deduplicates incoming replies by `replyIndex`**:
+The project builds with Maven (Java 17+):
 
-- If several messages arrive with the same `replyIndex`, only the first one is processed. Later ones are ignored.
-- This also works for range indices such as `replyIndex="0-45"`, which are used when replies are grouped into an
-  SDTStream. The whole grouped message is consumed only once.
-- Terminal messages (finish and error) are always processed, even if they share a `replyIndex` with another message.
+```sh
+# compile and run the unit + integration tests
+mvn verify
 
-#### Deduplication Bitmap Size Limit for Unknown `totalReplies`
-
-When `totalReplies` is not known yet, for example in streaming replies of unknown size,
-the requester still deduplicates numeric `replyIndex` values. But it has to limit how large the internal
-bitmap can grow.
-
-Configure this limit with:
-
-```properties
-spring.cloud.stream.requestreply.dedup.maxBitsWhenUnknown=100000
+# build without signing artifacts
+mvn -Dgpg.skip verify
 ```
 
-- Default: **100000** bits.
-- Effect: a `replyIndex` (or range end) above this limit is not deduplicated.
+An optional OWASP dependency check is available via the `owasp-dependency-check` profile:
 
-#### Example Log Message
+```sh
+mvn -Powasp-dependency-check verify
+```
 
-```
-2023-10-04 10:00:00.000  INFO 12345 --- [nio-8080-exec-1] c.s.s.requestreply.examples.sending     : <<< MyRequest(location=livingroom) [correlationId=12345, replyTo=requestReply/response/solace/*/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d, ...]
-2023-10-04 10:00:00.000  INFO 12345 --- [nio-8080-exec-1] c.s.s.requestreply.examples.sending     : >>> SensorReading(foo=1337) [correlationId=12345, replyTo=requestReply/response/solace/*/pub_sub_sending_K353456_315fd96b-b981-417b-be99-3be065c6611d, remainingReplies=0, ...]
-```
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and our
+[Code of Conduct](CODE_OF_CONDUCT.md), and see the [CHANGELOG](CHANGELOG.md) for release history.
+Questions about the code or Solace technologies are welcome in the
+[Solace community](https://solace.community).
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
