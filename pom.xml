@@ -81,7 +81,7 @@
         <dependency>
             <groupId>community.solace.spring.boot</groupId>
             <artifactId>spring-boot-starter-solace-client-config</artifactId>
-            <version>3.1.0</version>
+            <version>3.1.1</version>
         </dependency>
         <!-- Spring Cloud -->
         <dependency>
