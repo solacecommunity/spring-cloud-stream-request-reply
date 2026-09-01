@@ -1,0 +1,25 @@
+version: 3
+
+project:
+  locator: solacecommunity_spring-cloud-stream-request-reply
+  id: solacecommunity_spring-cloud-stream-request-reply
+  name: spring-cloud-stream-request-reply
+  teams: []
+  labels:
+    - java
+
+vendoredDependencies:
+  forceRescans: false
+  scanMethod: CLILicenseScan
+  licenseScanPathFilters:
+    exclude:
+      - "./.git"
+      - "./.github"
+
+paths:
+  exclude:
+    - ./.git
+    - ./.github
+
+telemetry:
+  scope: full
