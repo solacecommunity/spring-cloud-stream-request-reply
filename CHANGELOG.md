@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.1.2] - 2026-09-10
+### _Changed
+- Updated spring-boot-parent from 4.1.0 to 4.1.1
+- Updated spring-cloud-dependencies from 2025.1.2 to 2025.1.3
+- Updated solace-spring-cloud from 4.8.1 to 6.1.0
+- Updated springdoc-openapi-starter-webmvc-ui from 2.8.9 to 3.1.1
+- Updated spring-boot-starter-solace-client-config from 3.1.0 to 3.1.2
+- Added AI Agent instructions and guidelines
+
 ## [6.1.1] - 2026-06-25
 ### Fixed
 - The request/reply auto-configuration can now be excluded from sliced or focused tests (for example `@JsonTest`, or via `@ImportAutoConfiguration(exclude = RequestReplyAutoConfiguration.class)` / `spring.autoconfigure.exclude`). The per-binding reply consumers are no longer contributed by an `ApplicationContextInitializer` (which Spring applies to every context and which cannot be excluded), but by an `ImportBeanDefinitionRegistrar` that is only active when the auto-configuration itself is loaded. ([#8](https://github.com/solacecommunity/spring-cloud-stream-request-reply/issues/8))

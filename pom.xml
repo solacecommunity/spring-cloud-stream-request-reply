@@ -11,7 +11,7 @@
 
     <groupId>community.solace.spring.cloud</groupId>
     <artifactId>spring-cloud-stream-starter-request-reply</artifactId>
-    <version>6.1.1</version>
+    <version>6.1.2</version>
     <name>spring-cloud-stream-starter-request-reply</name>
     <description>Spring Boot Starter project to provide request and reply functionality to Spring Cloud Stream
         projects
@@ -81,7 +81,7 @@
         <dependency>
             <groupId>community.solace.spring.boot</groupId>
             <artifactId>spring-boot-starter-solace-client-config</artifactId>
-            <version>3.1.1</version>
+            <version>3.1.2</version>
         </dependency>
         <!-- Spring Cloud -->
         <dependency>
