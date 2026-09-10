@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [6.1.2] - 2026-09-10
-### _Changed
+### Changed
 - Updated spring-boot-parent from 4.1.0 to 4.1.1
 - Updated spring-cloud-dependencies from 2025.1.2 to 2025.1.3
 - Updated solace-spring-cloud from 4.8.1 to 6.1.0

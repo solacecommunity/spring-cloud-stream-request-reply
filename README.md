@@ -50,6 +50,7 @@ version that matches your Spring Cloud release train:
 
 | Spring Cloud | spring-cloud-stream-starter-request-reply | Spring Boot | sol-jcsmp |
 |--------------|-------------------------------------------|-------------|-----------|
+| 2025.1.3     | 6.1.2                                     | 4.1.1       | 10.30.2   |
 | 2025.1.2     | 6.1.1                                     | 4.1.0       | 10.30.1   |
 | 2025.1.2     | 6.1.0                                     | 4.1.0       | 10.30.1   |
 | 2025.1.1     | 6.0.1                                     | 4.0.5       | 10.29.0   |
