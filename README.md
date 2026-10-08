@@ -78,7 +78,7 @@ Java 17+ is required.
 <dependency>
     <groupId>community.solace.spring.cloud</groupId>
     <artifactId>spring-cloud-stream-starter-request-reply</artifactId>
-    <version>6.1.1</version>
+    <version>6.1.3</version>
 </dependency>
 ```
 
