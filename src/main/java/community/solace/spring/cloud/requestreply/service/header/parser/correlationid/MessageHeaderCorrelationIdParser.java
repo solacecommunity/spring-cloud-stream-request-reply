@@ -1,6 +1,5 @@
 package community.solace.spring.cloud.requestreply.service.header.parser.correlationid;
 
-import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 
@@ -16,6 +15,5 @@ public interface MessageHeaderCorrelationIdParser extends MessageCorrelationIdPa
                 getCorrelationId(message.getHeaders());
     }
 
-    @Nullable
     String getCorrelationId(MessageHeaders headers);
 }

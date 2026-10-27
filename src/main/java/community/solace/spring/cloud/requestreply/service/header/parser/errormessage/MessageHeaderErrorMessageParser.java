@@ -1,6 +1,5 @@
 package community.solace.spring.cloud.requestreply.service.header.parser.errormessage;
 
-import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 
@@ -13,6 +12,5 @@ public interface MessageHeaderErrorMessageParser extends MessageErrorMessagePars
                 getErrorMessage(message.getHeaders());
     }
 
-    @Nullable
     String getErrorMessage(MessageHeaders headers);
 }
