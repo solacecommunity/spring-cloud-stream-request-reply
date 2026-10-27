@@ -77,7 +77,8 @@ Formatting is defined in `.editorconfig` (IntelliJ scheme). Key rules:
 - **Braces:** always use braces, even for single‑statement `if`/`for`/`while` (`*_brace_force = always`).
 - **Naming:** implementation classes end in `Impl` (e.g. `RequestReplyServiceImpl`); test classes end in
   `Tests`.
-- Prefer `@Nullable` (Spring) on nullable returns/params, as existing parser code does.
+- Do not annotate nullness with `@Nullable`. Spring's `org.springframework.lang.Nullable` is deprecated,
+  and the project does not use a replacement.
 - Public API methods carry Javadoc; keep it accurate when you change signatures or behaviour.
 - Do not introduce Lombok in `src/main` (it is not a main dependency here; the examples use it, main code
   does not).

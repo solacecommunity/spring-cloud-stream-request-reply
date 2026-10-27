@@ -1,1 +1,1 @@
-org.springframework.boot.env.EnvironmentPostProcessor=community.solace.spring.cloud.requestreply.env.ReplyTopicWithWildcardPropertySourceEnvironmentPostProcessor
+org.springframework.boot.EnvironmentPostProcessor=community.solace.spring.cloud.requestreply.env.ReplyTopicWithWildcardPropertySourceEnvironmentPostProcessor

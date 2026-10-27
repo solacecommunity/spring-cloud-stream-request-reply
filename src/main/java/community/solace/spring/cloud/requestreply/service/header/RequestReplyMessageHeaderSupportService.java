@@ -30,7 +30,6 @@ import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.config.BindingProperties;
 import org.springframework.cloud.stream.config.BindingServiceProperties;
 import org.springframework.integration.support.MessageBuilder;
-import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.stereotype.Service;
@@ -72,8 +71,7 @@ public class RequestReplyMessageHeaderSupportService {
     @Autowired
     private ReplyWrappingInterceptor replyWrappingInterceptor;
 
-    public @Nullable
-    String getCorrelationId(Message<?> message) {
+    public String getCorrelationId(Message<?> message) {
         if (message == null) {
             return null;
         }
@@ -86,8 +84,7 @@ public class RequestReplyMessageHeaderSupportService {
         return null;
     }
 
-    public @Nullable
-    String getDestination(Message<?> message) {
+    public String getDestination(Message<?> message) {
         if (message == null) {
             return null;
         }
@@ -100,8 +97,7 @@ public class RequestReplyMessageHeaderSupportService {
         return null;
     }
 
-    public @Nullable
-    String getReplyTo(Message<?> message) {
+    public String getReplyTo(Message<?> message) {
         if (message == null) {
             return null;
         }
@@ -114,8 +110,7 @@ public class RequestReplyMessageHeaderSupportService {
         return null;
     }
 
-    public @Nullable
-    Long getTotalReplies(Message<?> message) {
+    public Long getTotalReplies(Message<?> message) {
         if (message == null) {
             return null;
         }
@@ -128,8 +123,7 @@ public class RequestReplyMessageHeaderSupportService {
         return null;
     }
 
-    public @Nullable
-    String getReplyIndex(Message<?> message) {
+    public String getReplyIndex(Message<?> message) {
         if (message == null) {
             return null;
         }
@@ -142,8 +136,7 @@ public class RequestReplyMessageHeaderSupportService {
         return null;
     }
 
-    public @Nullable
-    String getErrorMessage(Message<?> message) {
+    public String getErrorMessage(Message<?> message) {
         if (message == null) {
             return null;
         }

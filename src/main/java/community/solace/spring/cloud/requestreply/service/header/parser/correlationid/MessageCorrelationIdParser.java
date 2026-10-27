@@ -1,6 +1,5 @@
 package community.solace.spring.cloud.requestreply.service.header.parser.correlationid;
 
-import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 
 /**
@@ -8,6 +7,5 @@ import org.springframework.messaging.Message;
  */
 @FunctionalInterface
 public interface MessageCorrelationIdParser {
-    @Nullable
     String getCorrelationId(Message<?> message);
 }

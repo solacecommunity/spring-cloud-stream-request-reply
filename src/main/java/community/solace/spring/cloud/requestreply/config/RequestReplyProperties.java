@@ -1,7 +1,6 @@
 package community.solace.spring.cloud.requestreply.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.lang.Nullable;
 
 import java.util.*;
 import java.util.regex.Pattern;
