@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.1.4] - 2026-11-05
+### Changed
+- Updated spring-boot-parent from 4.1.1 to 4.1.2
+- Updated spring-cloud-dependencies from 2025.1.3 to 2025.1.4
+- Updated spring-boot-starter-solace-client-config from 3.1.3 to 3.1.4
+- The `${replyTopicWithWildcards|...}` environment post-processor is registered under `org.springframework.boot.EnvironmentPostProcessor`, the key Spring Boot 4.2 still reads
+
 ## [6.1.3] - 2026-10-08
 ### Changed
 - Updated spring-boot-starter-solace-client-config from 3.1.2 to 3.1.3
