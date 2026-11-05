@@ -50,6 +50,7 @@ version that matches your Spring Cloud release train:
 
 | Spring Cloud | spring-cloud-stream-starter-request-reply | Spring Boot | sol-jcsmp |
 |--------------|-------------------------------------------|-------------|-----------|
+| 2025.1.4     | 6.1.4                                     | 4.1.2       | 10.30.2   |
 | 2025.1.3     | 6.1.3                                     | 4.1.1       | 10.30.2   |
 | 2025.1.3     | 6.1.2                                     | 4.1.1       | 10.30.2   |
 | 2025.1.2     | 6.1.1                                     | 4.1.0       | 10.30.1   |
@@ -79,7 +80,7 @@ Java 17+ is required.
 <dependency>
     <groupId>community.solace.spring.cloud</groupId>
     <artifactId>spring-cloud-stream-starter-request-reply</artifactId>
-    <version>6.1.3</version>
+    <version>6.1.4</version>
 </dependency>
 ```
 
