@@ -1,9 +1,11 @@
 package community.solace.spring.cloud.requestreply.service;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -28,7 +30,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static community.solace.spring.cloud.requestreply.model.SensorReading.BaseUnit.CELSIUS;
 import static org.awaitility.Awaitility.await;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -36,6 +37,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 
 class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
+    private static final Duration THREAD_LEAK_TIME_LIMIT = Duration.ofSeconds(20);
 
     ArgumentCaptor<Message<?>> messageCaptor = ArgumentCaptor.forClass(Message.class);
     ArgumentCaptor<String> destinationCaptor = ArgumentCaptor.forClass(String.class);
@@ -1112,31 +1114,50 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
 
     @Test
     void requestAndAwaitReplyToTopic_threadLeak() {
+        // A timed-out request must release the worker that waits for its reply.
+        // The worker pool is shared by the whole JVM, so the test follows only the workers that ran its own requests.
+        // A request whose timeout fires before a worker picks it up is never run and holds no thread,
+        // so the test sends requests until enough of them reached a worker instead of expecting every one to.
+        int requestsReachingAWorker = 10;
+        List<Thread> requestWorkers = new CopyOnWriteArrayList<>();
+        Mockito.when(streamBridge.send(
+                       anyString(),
+                       any(Message.class)
+               ))
+               .thenAnswer(invocation -> {
+                   requestWorkers.add(Thread.currentThread());
+                   return true;
+               });
+
         SensorReading request = new SensorReading();
         request.setSensorID("toilet");
-        for (int i = 0; i < 10; i++) {
-            try {
-                requestReplyService.requestAndAwaitReplyToBinding(
-                        request,
-                        "requestReplyRepliesDemo",
-                        SensorReading.class,
-                        Duration.ofMillis(1)
-                );
-            }
-            catch (TimeoutException | RemoteErrorException | InterruptedException ignored) {
-            }
-        }
-
-        // Be tolerant of scheduling jitter: the send() calls happen on async execution paths.
-        // Wait until we observe all expected send() invocations rather than relying on a short Mockito timeout.
-        await()
-                .atMost(Duration.ofSeconds(20))
-                .untilAsserted(() -> Mockito.verify(streamBridge, Mockito.times(10))
-                        .send(destinationCaptor.capture(), messageCaptor.capture()));
 
         await()
-                .atMost(Duration.ofSeconds(20))
-                .until(requestReplyService::runningRequests, equalTo(0));
+                .atMost(THREAD_LEAK_TIME_LIMIT)
+                .until(() -> {
+                    assertThrows(TimeoutException.class, () -> requestReplyService.requestAndAwaitReplyToBinding(
+                            request,
+                            "requestReplyRepliesDemo",
+                            SensorReading.class,
+                            Duration.ofMillis(100)
+                    ));
+                    return requestWorkers.size() >= requestsReachingAWorker;
+                });
+
+        await()
+                .atMost(THREAD_LEAK_TIME_LIMIT)
+                .untilAsserted(() -> assertEquals(List.of(), workersStillServingARequest(requestWorkers)));
+
+        Mockito.verify(streamBridge, Mockito.atLeast(requestsReachingAWorker))
+               .send(anyString(), any(Message.class));
+    }
+
+    private static List<Thread> workersStillServingARequest(List<Thread> requestWorkers) {
+        return requestWorkers.stream()
+                             .distinct()
+                             .filter(worker -> Arrays.stream(worker.getStackTrace())
+                                                     .anyMatch(frame -> RequestReplyServiceImpl.class.getName().equals(frame.getClassName())))
+                             .toList();
     }
 
     @Test
