@@ -23,11 +23,11 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.config.BindingServiceProperties;
 import org.springframework.cloud.stream.function.StreamBridge;
-import org.springframework.integration.IntegrationMessageHeaderAccessor;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.converter.MessageConverter;
+import org.springframework.messaging.support.GenericMessage;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
@@ -494,32 +494,23 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 Boolean.TRUE.equals(message.getHeaders().get(SpringHeaderParser.GROUPED_MESSAGES));
     }
 
-    private static List<Message<?>> parseMultiResponse(Message<SDTStream> message) {
+    /**
+     * Unpacks a grouped reply into one message per item. All items share one {@link MessageHeaders}
+     * instance, so the header map is copied at most once per group instead of several times per item.
+     * The items therefore share the {@code id} and {@code timestamp} headers as well.
+     */
+    static List<Message<?>> parseMultiResponse(Message<SDTStream> message) {
         try {
             List<Message<?>> msgs = new ArrayList<>();
-
-            // When creating grouped (SDTStream) responses, we temporarily move the content-type to
-            // SpringHeaderParser.GROUPED_CONTENT_TYPE to prevent Spring from re-encoding the outer message.
-            // When unpacking, restore it so downstream conversion (e.g. JSON -> POJO) works as expected.
-            Map<String, Object> baseHeaders = new IntegrationMessageHeaderAccessor(message).toMap();
-            Object groupedContentType = baseHeaders.get(SpringHeaderParser.GROUPED_CONTENT_TYPE);
-            if (groupedContentType != null && baseHeaders.get(MessageHeaders.CONTENT_TYPE) == null) {
-                baseHeaders.put(MessageHeaders.CONTENT_TYPE, groupedContentType);
-            }
+            MessageHeaders itemHeaders = withGroupedContentTypeRestored(message.getHeaders());
 
             while (message.getPayload().hasRemaining()) {
                 switch (message.getPayload().readString()) {
                     case "BytesMessage" -> msgs.add(
-                            MessageBuilder
-                                    .withPayload(message.getPayload().readBytes())
-                                    .copyHeaders(baseHeaders)
-                                    .build()
+                            new GenericMessage<>(message.getPayload().readBytes(), itemHeaders)
                     );
                     case "TextMessage", "XMLContentMessage" -> msgs.add(
-                            MessageBuilder
-                                    .withPayload(new String(message.getPayload().readBytes(), StandardCharsets.UTF_8))
-                                    .copyHeaders(baseHeaders)
-                                    .build()
+                            new GenericMessage<>(new String(message.getPayload().readBytes(), StandardCharsets.UTF_8), itemHeaders)
                     );
                     case "StreamMessage", "MapMessage" -> throw new IllegalArgumentException(
                             "Message type: StreamMessage and MapMessage are not supported for " +
@@ -531,6 +522,21 @@ public class RequestReplyServiceImpl implements RequestReplyService {
         } catch (SDTException e) {
             throw new IllegalArgumentException(e);
         }
+    }
+
+    /**
+     * The responder moves the content type of a grouped reply to {@link SpringHeaderParser#GROUPED_CONTENT_TYPE},
+     * so that Spring does not re-encode the SDTStream. The items need it back to be converted.
+     */
+    private static MessageHeaders withGroupedContentTypeRestored(MessageHeaders groupHeaders) {
+        Object groupedContentType = groupHeaders.get(SpringHeaderParser.GROUPED_CONTENT_TYPE);
+        if (groupedContentType == null || groupHeaders.get(MessageHeaders.CONTENT_TYPE) != null) {
+            return groupHeaders;
+        }
+
+        Map<String, Object> restored = new HashMap<>(groupHeaders);
+        restored.put(MessageHeaders.CONTENT_TYPE, groupedContentType);
+        return new MessageHeaders(restored);
     }
 
     public int runningRequests() {
