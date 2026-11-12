@@ -16,14 +16,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Pins how the requester unpacks a grouped (SDTStream) reply into its items: which headers every item
- * carries, and that the items of a group share one header instance. A group holds up to 10 000 items,
+ * carries, and that the items of a group share one header instance. A group can hold thousands of items,
  * so a header copy per item turns unpacking a large reply into the dominant CPU cost.
  */
 class GroupedReplyParsingTests {
 
     @Test
     void groupedReply_whenContentTypeWasMovedAside_restoresItOnEveryItem() {
-        Message<SDTStream> group = MessageBuilder.withPayload(textItems("a", "b"))
+        Message<SDTStream> group = MessageBuilder.withPayload(TestSdtStreamSupport.createSdtStream(List.of("a", "b")))
                 .setHeader(SpringHeaderParser.GROUPED_CONTENT_TYPE, "application/json")
                 .build();
 
@@ -35,8 +35,23 @@ class GroupedReplyParsingTests {
     }
 
     @Test
+    void groupedReply_whenContentTypeWasMovedAside_keepsTheOtherHeadersOfTheGroup() {
+        Message<SDTStream> group = MessageBuilder.withPayload(TestSdtStreamSupport.createSdtStream(List.of("a", "b")))
+                .setHeader(SpringHeaderParser.GROUPED_CONTENT_TYPE, "application/json")
+                .setHeader("correlationId", "correlation-1")
+                .setHeader("solace_senderId", "responder-1")
+                .build();
+
+        List<Message<?>> items = RequestReplyServiceImpl.parseMultiResponse(group);
+
+        assertThat(items).allSatisfy(item -> assertThat(item.getHeaders())
+                .containsEntry("correlationId", "correlation-1")
+                .containsEntry("solace_senderId", "responder-1"));
+    }
+
+    @Test
     void groupedReply_whenContentTypeIsPresent_keepsIt() {
-        Message<SDTStream> group = MessageBuilder.withPayload(textItems("a"))
+        Message<SDTStream> group = MessageBuilder.withPayload(TestSdtStreamSupport.createSdtStream(List.of("a")))
                 .setHeader(MessageHeaders.CONTENT_TYPE, "text/plain")
                 .setHeader(SpringHeaderParser.GROUPED_CONTENT_TYPE, "application/json")
                 .build();
@@ -48,7 +63,7 @@ class GroupedReplyParsingTests {
 
     @Test
     void groupedReply_givesEveryItemTheHeadersOfTheGroup() {
-        Message<SDTStream> group = MessageBuilder.withPayload(textItems("a", "b"))
+        Message<SDTStream> group = MessageBuilder.withPayload(TestSdtStreamSupport.createSdtStream(List.of("a", "b")))
                 .setHeader("correlationId", "correlation-1")
                 .setHeader("solace_senderId", "responder-1")
                 .build();
@@ -62,7 +77,7 @@ class GroupedReplyParsingTests {
 
     @Test
     void groupedReply_sharesOneHeaderInstanceAcrossItsItems() {
-        Message<SDTStream> group = MessageBuilder.withPayload(textItems("a", "b", "c"))
+        Message<SDTStream> group = MessageBuilder.withPayload(TestSdtStreamSupport.createSdtStream(List.of("a", "b", "c")))
                 .setHeader(SpringHeaderParser.GROUPED_CONTENT_TYPE, "application/json")
                 .build();
 
@@ -79,7 +94,7 @@ class GroupedReplyParsingTests {
     void groupedReply_decodesBytesItemsAsBytesAndTextItemsAsString() {
         SDTStream stream = JCSMPFactory.onlyInstance().createStream();
         stream.writeString("BytesMessage");
-        stream.writeBytes(new byte[]{1, 2, 3});
+        stream.writeBytes(new byte[] {1, 2, 3});
         stream.writeString("TextMessage");
         stream.writeBytes("text".getBytes(StandardCharsets.UTF_8));
 
@@ -87,15 +102,6 @@ class GroupedReplyParsingTests {
 
         assertThat(items)
                 .<Object>extracting(Message::getPayload)
-                .containsExactly(new byte[]{1, 2, 3}, "text");
-    }
-
-    private static SDTStream textItems(String... texts) {
-        SDTStream stream = JCSMPFactory.onlyInstance().createStream();
-        for (String text : texts) {
-            stream.writeString("TextMessage");
-            stream.writeBytes(text.getBytes(StandardCharsets.UTF_8));
-        }
-        return stream;
+                .containsExactly(new byte[] {1, 2, 3}, "text");
     }
 }
