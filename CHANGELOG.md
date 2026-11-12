@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Fixed
+- Unpacking a grouped reply no longer copies the header map three times for every item. All items of a group share one header instance, which more than halves the memory allocated per item with 32 headers. The items of a group now also share their `id` and `timestamp` headers.
+
 ## [6.1.4] - 2026-11-05
 ### Changed
 - Updated spring-boot-parent from 4.1.1 to 4.1.2
