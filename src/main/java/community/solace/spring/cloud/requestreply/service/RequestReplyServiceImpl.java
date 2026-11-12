@@ -496,8 +496,8 @@ public class RequestReplyServiceImpl implements RequestReplyService {
 
     /**
      * Unpacks a grouped reply into one message per item. All items share one {@link MessageHeaders}
-     * instance, so the header map is copied at most once per group instead of several times per item.
-     * The items therefore share the {@code id} and {@code timestamp} headers as well.
+     * instance, so no item copies the header map. The items therefore share one {@code id} and
+     * {@code timestamp} as well.
      */
     static List<Message<?>> parseMultiResponse(Message<SDTStream> message) {
         try {
