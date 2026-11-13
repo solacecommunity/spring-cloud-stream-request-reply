@@ -4,8 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [6.1.5] - 2026-11-13
 ### Changed
+- Updated spring-boot-starter-solace-client-config from 3.1.4 to 3.1.5
 - Unpacking a grouped reply no longer copies the header map three times for every item: all items of a group share one header instance. With 32 headers and 512-byte items this more than halves the memory allocated per item. The items of a group therefore also share one `id` and `timestamp` instead of each getting its own; a custom `RequestReplyLogger` that tells items apart by `id` has to use something else.
 
 ## [6.1.4] - 2026-11-05
