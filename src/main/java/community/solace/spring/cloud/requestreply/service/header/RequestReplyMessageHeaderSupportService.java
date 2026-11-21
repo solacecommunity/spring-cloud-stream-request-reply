@@ -18,7 +18,6 @@ import community.solace.spring.cloud.requestreply.service.header.parser.errormes
 import community.solace.spring.cloud.requestreply.service.header.parser.replyto.MessageReplyToParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.totalreplies.MessageTotalRepliesParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.replyindex.MessageReplyIndexParser;
-import community.solace.spring.cloud.requestreply.service.header.parser.timetolive.MessageTimeToLiveParser;
 import community.solace.spring.cloud.requestreply.service.messageinterceptor.ReplyWrappingInterceptor;
 import community.solace.spring.cloud.requestreply.util.MessageChunker;
 import org.apache.commons.lang3.tuple.Pair;
@@ -39,7 +38,7 @@ import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.StringUtils;
 
-import static community.solace.spring.cloud.requestreply.util.MessageTimeToLive.setTimeToLiveIfAbsent;
+import static community.solace.spring.cloud.requestreply.util.MessageTimeToLive.copyTimeToLiveIfAbsent;
 
 @Service
 public class RequestReplyMessageHeaderSupportService {
@@ -64,9 +63,6 @@ public class RequestReplyMessageHeaderSupportService {
 
     @Autowired
     private List<MessageErrorMessageParser> errorMessageParsers;
-
-    @Autowired(required = false)
-    private List<MessageTimeToLiveParser> timeToLiveParsers = List.of();
 
     @Autowired
     private RequestReplyProperties requestReplyProperties;
@@ -156,25 +152,6 @@ public class RequestReplyMessageHeaderSupportService {
     }
 
     /**
-     * Reads the time-to-live of a message through the ordered time-to-live parsers.
-     *
-     * @param message the message to read
-     * @return the time-to-live the message carries, or {@code null} if it never expires
-     */
-    public Duration getTimeToLive(Message<?> message) {
-        if (message == null) {
-            return null;
-        }
-        for (MessageTimeToLiveParser p : timeToLiveParsers) {
-            Duration value = p.getTimeToLive(message);
-            if (value != null) {
-                return value;
-            }
-        }
-        return null;
-    }
-
-    /**
      * wrap the given function, copying message headers from incoming to outgoing message,
      * properly setting correlation ID, target and the time-to-live of the request
      *
@@ -239,7 +216,7 @@ public class RequestReplyMessageHeaderSupportService {
                         mb.setHeader(header.getKey(), header.getValue());
                     }
                 }
-                adoptTimeToLive(request, mb);
+                copyTimeToLiveIfAbsent(request, mb);
                 return this.replyWrappingInterceptor.interceptReplyWrappingPayloadMessage(mb.build(), bindingName);
             }
             catch (Exception e) {
@@ -459,7 +436,7 @@ public class RequestReplyMessageHeaderSupportService {
 
         mb.setHeader(SpringHeaderParser.MULTI_TOTAL_REPLIES, totalReplies);
         mb.setHeader(SpringHeaderParser.MULTI_REPLY_INDEX, replyIndex);
-        adoptTimeToLive(request, mb);
+        copyTimeToLiveIfAbsent(request, mb);
     }
 
     private <Q, A> void transferAndAdoptHeaders(Message<Q> request,
@@ -481,17 +458,6 @@ public class RequestReplyMessageHeaderSupportService {
             if (val != null) {
                 mb.setHeaderIfAbsent(headerToCopy, val);
             }
-        }
-    }
-
-    /**
-     * Gives the reply the time-to-live of the request, unless the reply already carries a lifetime. Runs after every
-     * other header of the reply is set, so that it sees a lifetime set by the caller.
-     */
-    private <Q, A> void adoptTimeToLive(Message<Q> request, MessageBuilder<A> mb) {
-        Duration requestTimeToLive = getTimeToLive(request);
-        if (requestTimeToLive != null) {
-            setTimeToLiveIfAbsent(mb, requestTimeToLive);
         }
     }
 

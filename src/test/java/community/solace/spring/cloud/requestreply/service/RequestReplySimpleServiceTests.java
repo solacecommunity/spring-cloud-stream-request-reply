@@ -11,9 +11,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import community.solace.spring.cloud.requestreply.AbstractRequestReplySimpleIT;
 import community.solace.spring.cloud.requestreply.model.SensorReading;
-import community.solace.spring.cloud.requestreply.service.header.parser.SolaceHeaderParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.SpringHeaderParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.RemoteErrorException;
+import community.solace.spring.cloud.requestreply.util.MessageTimeToLive;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -303,7 +303,7 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
 
         assertEquals(
                 REQUEST_TIMEOUT.toMillis(),
-                sentRequest().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
+                sentRequest().getHeaders().get(MessageTimeToLive.TIME_TO_LIVE, Long.class)
         );
     }
 
@@ -325,7 +325,7 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
 
         assertEquals(
                 REQUEST_TIMEOUT.toMillis(),
-                sentRequest().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
+                sentRequest().getHeaders().get(MessageTimeToLive.TIME_TO_LIVE, Long.class)
         );
     }
 
@@ -339,12 +339,12 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
                 "last_value/temperature/celsius/demo",
                 SensorReading.class,
                 REQUEST_TIMEOUT,
-                Map.of(SolaceHeaderParser.TIME_TO_LIVE, neverExpire)
+                Map.of(MessageTimeToLive.TIME_TO_LIVE, neverExpire)
         );
 
         assertEquals(
                 neverExpire,
-                sentRequest().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
+                sentRequest().getHeaders().get(MessageTimeToLive.TIME_TO_LIVE, Long.class)
         );
     }
 
@@ -355,7 +355,7 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
 
         requestReplyService.requestAndAwaitReplyToTopic(
                 MessageBuilder.withPayload(new SensorReading())
-                              .setHeader(SolaceHeaderParser.TIME_TO_LIVE, timeToLiveOfTheMessage)
+                              .setHeader(MessageTimeToLive.TIME_TO_LIVE, timeToLiveOfTheMessage)
                               .build(),
                 "last_value/temperature/celsius/demo",
                 SensorReading.class,
@@ -364,7 +364,7 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
 
         assertEquals(
                 timeToLiveOfTheMessage,
-                sentRequest().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
+                sentRequest().getHeaders().get(MessageTimeToLive.TIME_TO_LIVE, Long.class)
         );
     }
 
@@ -378,7 +378,7 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
 
         requestReplyService.requestAndAwaitReplyToTopic(
                 MessageBuilder.withPayload(new SensorReading())
-                              .setHeader(SolaceHeaderParser.EXPIRATION, 1_682_928_000_000L)
+                              .setHeader(MessageTimeToLive.EXPIRATION, 1_682_928_000_000L)
                               .build(),
                 "last_value/temperature/celsius/demo",
                 SensorReading.class,
@@ -386,7 +386,7 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
         );
 
         assertNull(
-                sentRequest().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE)
+                sentRequest().getHeaders().get(MessageTimeToLive.TIME_TO_LIVE)
         );
     }
 

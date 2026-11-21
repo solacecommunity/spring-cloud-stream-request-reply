@@ -631,13 +631,12 @@ Parser interfaces (root interface parses a `Message`, the `…Header…` variant
 - `MessageTotalRepliesParser` / `MessageHeaderTotalRepliesParser`
 - `MessageReplyIndexParser` / `MessageHeaderReplyIndexParser`
 - `MessageErrorMessageParser` / `MessageHeaderErrorMessageParser`
-- `MessageTimeToLiveParser` / `MessageHeaderTimeToLiveParser`
 
 Bundled implementations, in priority order:
 
 | Parser | Order | Provides |
 |--------|-------|----------|
-| `SolaceHeaderParser` | 200 | correlationId, destination, replyTo, timeToLive for the Solace binder |
+| `SolaceHeaderParser` | 200 | correlationId, destination, replyTo for the Solace binder |
 | `SpringCloudStreamHeaderParser` | 10000 | destination, totalReplies for Spring Cloud Stream headers |
 | `SpringIntegrationHeaderParser` | 20000 | correlationId for Spring Integration headers |
 | `BinderHeaderParser` | 30000 | destination for Spring Cloud Stream binder headers |

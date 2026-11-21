@@ -3,8 +3,8 @@ package community.solace.spring.cloud.requestreply.service.header;
 import com.solacesystems.jcsmp.SDTStream;
 import com.solacesystems.jcsmp.impl.sdt.StreamImpl;
 import community.solace.spring.cloud.requestreply.AbstractRequestReplySimpleIT;
-import community.solace.spring.cloud.requestreply.service.header.parser.SolaceHeaderParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.SpringHeaderParser;
+import community.solace.spring.cloud.requestreply.util.MessageTimeToLive;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.binder.BinderHeaders;
@@ -676,29 +676,6 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
 
 
     @Test
-    void getTimeToLive() {
-        Message<String> m = MessageBuilder.withPayload("demo")
-                .setHeader(SolaceHeaderParser.TIME_TO_LIVE, 5_000L)
-                .build();
-
-        assertEquals(
-                Duration.ofSeconds(5),
-                supportService.getTimeToLive(m)
-        );
-    }
-
-    @Test
-    void getTimeToLive_ofZero_meansTheMessageNeverExpires() {
-        Message<String> m = MessageBuilder.withPayload("demo")
-                .setHeader(SolaceHeaderParser.TIME_TO_LIVE, 0L)
-                .build();
-
-        assertNull(
-                supportService.getTimeToLive(m)
-        );
-    }
-
-    @Test
     void wrap_expectTheRequestsTimeToLive_whenRequestCarriesOne() {
         Function<Message<String>, Message<String>> supplier = supportService.wrap(m -> m, (Class<Throwable>) null);
 
@@ -717,7 +694,7 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
                 .build());
 
         assertNull(
-                answerM.getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE)
+                answerM.getHeaders().get(MessageTimeToLive.TIME_TO_LIVE)
         );
     }
 
@@ -728,7 +705,7 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
         Message<String> answerM = supplier.apply(requestWithTimeToLive(Duration.ZERO));
 
         assertNull(
-                answerM.getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE)
+                answerM.getHeaders().get(MessageTimeToLive.TIME_TO_LIVE)
         );
     }
 
@@ -737,7 +714,7 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
         long neverExpire = 0L;
         Function<Message<String>, Message<String>> supplier = supportService.wrap(
                 m -> m,
-                Map.of(SolaceHeaderParser.TIME_TO_LIVE, neverExpire),
+                Map.of(MessageTimeToLive.TIME_TO_LIVE, neverExpire),
                 (Class<Throwable>) null
         );
 
@@ -745,7 +722,7 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
 
         assertEquals(
                 neverExpire,
-                answerM.getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
+                answerM.getHeaders().get(MessageTimeToLive.TIME_TO_LIVE, Long.class)
         );
     }
 
@@ -756,14 +733,14 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
     void wrap_expectNoTimeToLive_whenAdditionalHeadersGiveAnExpiration() {
         Function<Message<String>, Message<String>> supplier = supportService.wrap(
                 m -> m,
-                Map.of(SolaceHeaderParser.EXPIRATION, 1_682_928_000_000L),
+                Map.of(MessageTimeToLive.EXPIRATION, 1_682_928_000_000L),
                 (Class<Throwable>) null
         );
 
         Message<String> answerM = supplier.apply(requestWithTimeToLive(REQUEST_TIME_TO_LIVE));
 
         assertNull(
-                answerM.getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE)
+                answerM.getHeaders().get(MessageTimeToLive.TIME_TO_LIVE)
         );
     }
 
@@ -818,14 +795,14 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
         return MessageBuilder.withPayload("demo")
                 .setHeader("correlationId", "my-correlationId-my")
                 .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
-                .setHeader(SolaceHeaderParser.TIME_TO_LIVE, requestTimeToLive.toMillis())
+                .setHeader(MessageTimeToLive.TIME_TO_LIVE, requestTimeToLive.toMillis())
                 .build();
     }
 
     private void assertTheRequestsTimeToLive(Message<String> reply) {
         assertEquals(
                 REQUEST_TIME_TO_LIVE.toMillis(),
-                reply.getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class),
+                reply.getHeaders().get(MessageTimeToLive.TIME_TO_LIVE, Long.class),
                 "The reply must expire like the request it answers"
         );
     }

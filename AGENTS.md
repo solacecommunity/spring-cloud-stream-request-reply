@@ -39,8 +39,7 @@ src/main/java/community/solace/spring/cloud/requestreply/
 │   ├── header/
 │   │   ├── RequestReplyMessageHeaderSupportService.java  # responder-side wrap/wrapList/wrapFlux helpers
 │   │   └── parser/                         # ordered Message/MessageHeaders parsers (correlationId,
-│   │       │                               #   destination, replyTo, replyIndex, totalReplies, errorMessage,
-│   │       │                               #   timeToLive)
+│   │       │                               #   destination, replyTo, replyIndex, totalReplies, errorMessage)
 │   │       ├── SolaceHeaderParser.java   SpringHeaderParser.java   HttpHeaderParser.java   ...
 │   ├── logging/                            # RequestReplyLogger + DefaultRequestReplyLogger
 │   └── messageinterceptor/                 # RequestSendingInterceptor, ReplyWrappingInterceptor
@@ -157,7 +156,9 @@ contexts (see §6). If a bean with the binding name already exists, do not overr
 - **Header access goes through the ordered parser chain**, never by reading a hard‑coded header key inline.
   To support a new binder or header convention, add a parser bean and order it with `@Order` (lower =
   higher priority). Header name constants live in `SpringHeaderParser` (`totalReplies`, `replyIndex`,
-  `groupedMessages`, `groupedContentType`, `errorMessage`) — reuse them.
+  `groupedMessages`, `groupedContentType`, `errorMessage`) — reuse them. The one exception is the Solace
+  message lifetime (`solace_timeToLive`, `solace_expiration`): it is Solace‑only on the write side, so a
+  pluggable read side would buy nothing, and `MessageTimeToLive` reads and writes it directly.
 - **Correlation ids** are generated as a random UUID unless the request already carries one.
 - **Reply‑to uniqueness:** reply topics should be process‑unique. Use `${replyTopicWithWildcards|uuid}`
   (generated once at process start) — not `${random.uuid}` (new value per reference). The requester listens
@@ -169,13 +170,11 @@ contexts (see §6). If a bean with the binding name already exists, do not overr
 - **Message time‑to‑live follows the timeout.** The requester stamps the timeout as `solace_timeToLive`; a
   reply takes the request's time‑to‑live unchanged. A responder cannot know what is left of it: a message
   arrives with the time‑to‑live its sender set, and JCSMP does not send the end of life (`expiration`) it
-  derives from it. `MessageTimeToLive` is the one place that writes it, and it keeps three rules: stay
-  between 1 ms and ten years (Solace reads 0 as "never expire", and JCSMP refuses to send more than ten
+  derives from it. `MessageTimeToLive` is the one place that reads and writes it, and it keeps three rules:
+  stay between 1 ms and ten years (Solace reads 0 as "never expire", and JCSMP refuses to send more than ten
   years); never overwrite a lifetime the message already carries; and never set a time‑to‑live and
-  `solace_expiration` together. On a reply it is set after
-  every other header, `additionalHeaders` included, so that it sees a lifetime the caller set. Writing is
-  Solace‑only: a custom `MessageTimeToLiveParser` changes which time‑to‑live a reply copies, not which header
-  it is written to.
+  `solace_expiration` together. On a reply it is set after every other header, `additionalHeaders`
+  included, so that it sees a lifetime the caller set.
 - **Grouping thresholds** are load‑bearing constants: flush at 1 MB, at 10 000 messages, or after the group
   timeout (default 200 ms). Changing them affects broker behaviour and interop — do so deliberately and
   document it.
