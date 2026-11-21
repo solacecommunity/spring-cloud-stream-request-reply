@@ -42,6 +42,7 @@ import java.util.function.Consumer;
 import org.slf4j.event.Level;
 
 import static community.solace.spring.cloud.requestreply.util.CheckedExceptionWrapper.throwingUnchecked;
+import static community.solace.spring.cloud.requestreply.util.MessageTimeToLive.setTimeToLiveIfAbsent;
 
 /**
  * The RequestReplyService takes care of asynchronous request and reply messages, relating one to the other and allowing to wrap both as a synchronous call.
@@ -344,6 +345,7 @@ public class RequestReplyServiceImpl implements RequestReplyService {
                 messageBuilder.setHeader(header.getKey(), header.getValue());
             }
         }
+        setTimeToLiveIfAbsent(messageBuilder, timeoutPeriod);
 
         Message<?> toSend = requestSendingInterceptor.interceptRequestSendingMessage(messageBuilder.build(), bindingName);
 

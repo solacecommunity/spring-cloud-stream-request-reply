@@ -34,6 +34,7 @@ to the caller.
 - Non‑blocking variants returning `CompletableFuture` or reactive `Flux`.
 - **Request / multi‑reply**: receive zero to N answers for one request.
 - Per‑request **timeouts** and automatic cleanup of in‑flight bookkeeping.
+- The timeout is also the Solace **time‑to‑live** of the request and its replies, so neither outlives the wait.
 - Automatic **correlation id** generation and reply‑to routing.
 - Helper methods (`wrap`, `wrapList`, `wrapFlux`) for the responder side that set the reply headers for
   you and can **forward selected exceptions** back to the requester.
@@ -198,6 +199,32 @@ function yourself — but you **must** list the binding name in `spring.cloud.fu
 Every method takes a `Duration timeoutPeriod`. The request is sent and the reply awaited on a shared
 executor; if no (final) reply arrives in time the pending request is aborted and a `TimeoutException`
 is raised. Bookkeeping for the request is always cleaned up on success, error or timeout.
+
+### Message time‑to‑live
+
+A request that is not answered within the timeout, and a reply that arrives after it, are of no use to
+anyone. The library therefore sets the Solace time‑to‑live (`solace_timeToLive`):
+
+- on the **request**, to the timeout;
+- on every **reply** built by the `wrap*` helpers, to the time‑to‑live the request arrived with, less the
+  time since it arrived. A request without a time‑to‑live gets replies without one. A reply whose request
+  has already expired gets 1 ms, because 0 means "never expire".
+
+A time‑to‑live you set yourself wins: on a request `Message`, in `additionalHeaders`, in a message
+interceptor, or copied onto the reply with `copyHeadersOnWrap`. A message that carries
+`solace_expiration` gets no time‑to‑live either, because the Solace binder rejects the two headers with
+different values. To send a request that never expires, pass `solace_timeToLive` = `0L` in
+`additionalHeaders`. A `solace_timeToLive` in the binding's producer `defaultHeader` no longer applies,
+because the Solace binder lets a message header win over a default; set it in `additionalHeaders` or an
+interceptor instead.
+
+The broker only expires guaranteed messages, and only on a queue that respects the time‑to‑live
+(`respect-ttl`). It discards an expired message, or moves it to the queue's dead message queue if there
+is one: the Solace binder marks messages DMQ‑eligible by default (`solace_dmqEligible`). On a direct
+message the time‑to‑live has no effect.
+
+The reply's time‑to‑live is measured on the responder's own clock, from the moment the request message
+was built there, so it does not depend on the requester's and responder's clocks agreeing.
 
 ### Single vs. multi response
 
@@ -595,12 +622,13 @@ Parser interfaces (root interface parses a `Message`, the `…Header…` variant
 - `MessageTotalRepliesParser` / `MessageHeaderTotalRepliesParser`
 - `MessageReplyIndexParser` / `MessageHeaderReplyIndexParser`
 - `MessageErrorMessageParser` / `MessageHeaderErrorMessageParser`
+- `MessageTimeToLiveParser` / `MessageHeaderTimeToLiveParser`
 
 Bundled implementations, in priority order:
 
 | Parser | Order | Provides |
 |--------|-------|----------|
-| `SolaceHeaderParser` | 200 | correlationId, destination, replyTo for the Solace binder |
+| `SolaceHeaderParser` | 200 | correlationId, destination, replyTo, timeToLive for the Solace binder |
 | `SpringCloudStreamHeaderParser` | 10000 | destination, totalReplies for Spring Cloud Stream headers |
 | `SpringIntegrationHeaderParser` | 20000 | correlationId for Spring Integration headers |
 | `BinderHeaderParser` | 30000 | destination for Spring Cloud Stream binder headers |
