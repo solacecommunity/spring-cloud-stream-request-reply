@@ -40,6 +40,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 
 class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
     private static final Duration THREAD_LEAK_TIME_LIMIT = Duration.ofSeconds(20);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
 
     ArgumentCaptor<Message<?>> messageCaptor = ArgumentCaptor.forClass(Message.class);
     ArgumentCaptor<String> destinationCaptor = ArgumentCaptor.forClass(String.class);
@@ -290,100 +291,128 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
 
 
     @Test
-    void requestAndAwaitReplyToTopic_expectTimeoutAsTimeToLive_whenRequestSent() {
-        assertThrows(TimeoutException.class, () -> requestReplyService.requestAndAwaitReplyToTopic(
+    void requestAndAwaitReplyToTopic_expectTimeoutAsTimeToLive_whenRequestSent() throws Exception {
+        answerEveryRequestAtOnce();
+
+        requestReplyService.requestAndAwaitReplyToTopic(
                 new SensorReading(),
                 "last_value/temperature/celsius/demo",
                 SensorReading.class,
-                Duration.ofMillis(100)
-        ));
+                REQUEST_TIMEOUT
+        );
 
-        Mockito.verify(streamBridge).send(anyString(), messageCaptor.capture());
         assertEquals(
-                100L,
-                messageCaptor.getValue().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
+                REQUEST_TIMEOUT.toMillis(),
+                sentRequest().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
         );
     }
 
     @Test
     void requestReplyToTopicReactive_expectTimeoutAsTimeToLive_whenRequestSent() {
+        answerEveryRequestAtOnce();
+
         Flux<SensorReading> flux = requestReplyService.requestReplyToTopicReactive(
                 new SensorReading(),
                 "last_value/temperature/celsius/demo",
                 SensorReading.class,
-                Duration.ofMillis(100)
+                REQUEST_TIMEOUT
         );
 
         StepVerifier
                 .create(flux)
-                .expectError(TimeoutException.class)
+                .expectComplete()
                 .verify(Duration.ofSeconds(10));
 
-        Mockito.verify(streamBridge).send(anyString(), messageCaptor.capture());
         assertEquals(
-                100L,
-                messageCaptor.getValue().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
+                REQUEST_TIMEOUT.toMillis(),
+                sentRequest().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
         );
     }
 
     @Test
-    void requestAndAwaitReplyToTopic_expectCallersTimeToLive_whenGivenInAdditionalHeaders() {
+    void requestAndAwaitReplyToTopic_expectCallersTimeToLive_whenGivenInAdditionalHeaders() throws Exception {
         long neverExpire = 0L;
+        answerEveryRequestAtOnce();
 
-        assertThrows(TimeoutException.class, () -> requestReplyService.requestAndAwaitReplyToTopic(
+        requestReplyService.requestAndAwaitReplyToTopic(
                 new SensorReading(),
                 "last_value/temperature/celsius/demo",
                 SensorReading.class,
-                Duration.ofMillis(100),
+                REQUEST_TIMEOUT,
                 Map.of(SolaceHeaderParser.TIME_TO_LIVE, neverExpire)
-        ));
+        );
 
-        Mockito.verify(streamBridge).send(anyString(), messageCaptor.capture());
         assertEquals(
                 neverExpire,
-                messageCaptor.getValue().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
+                sentRequest().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
         );
     }
 
     @Test
-    void requestAndAwaitReplyToTopicWithMsg_expectItsTimeToLiveKept_whenMessageCarriesOne() {
+    void requestAndAwaitReplyToTopicWithMsg_expectItsTimeToLiveKept_whenMessageCarriesOne() throws Exception {
         long timeToLiveOfTheMessage = 5_000L;
+        answerEveryRequestAtOnce();
 
-        assertThrows(TimeoutException.class, () -> requestReplyService.requestAndAwaitReplyToTopic(
+        requestReplyService.requestAndAwaitReplyToTopic(
                 MessageBuilder.withPayload(new SensorReading())
                               .setHeader(SolaceHeaderParser.TIME_TO_LIVE, timeToLiveOfTheMessage)
                               .build(),
                 "last_value/temperature/celsius/demo",
                 SensorReading.class,
-                Duration.ofMillis(100)
-        ));
+                REQUEST_TIMEOUT
+        );
 
-        Mockito.verify(streamBridge).send(anyString(), messageCaptor.capture());
         assertEquals(
                 timeToLiveOfTheMessage,
-                messageCaptor.getValue().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
+                sentRequest().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
         );
     }
 
     /**
-     * The Solace binder rejects a message whose expiration and time-to-live differ, so a request that carries an
+     * A Solace message must never carry a time-to-live and an expiration together, so a request that carries an
      * expiration must not get a time-to-live on top.
      */
     @Test
-    void requestAndAwaitReplyToTopicWithMsg_expectNoTimeToLiveAdded_whenMessageCarriesAnExpiration() {
-        assertThrows(TimeoutException.class, () -> requestReplyService.requestAndAwaitReplyToTopic(
+    void requestAndAwaitReplyToTopicWithMsg_expectNoTimeToLiveAdded_whenMessageCarriesAnExpiration() throws Exception {
+        answerEveryRequestAtOnce();
+
+        requestReplyService.requestAndAwaitReplyToTopic(
                 MessageBuilder.withPayload(new SensorReading())
                               .setHeader(SolaceHeaderParser.EXPIRATION, 1_682_928_000_000L)
                               .build(),
                 "last_value/temperature/celsius/demo",
                 SensorReading.class,
-                Duration.ofMillis(100)
-        ));
-
-        Mockito.verify(streamBridge).send(anyString(), messageCaptor.capture());
-        assertNull(
-                messageCaptor.getValue().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE)
+                REQUEST_TIMEOUT
         );
+
+        assertNull(
+                sentRequest().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE)
+        );
+    }
+
+    /**
+     * A request whose timeout runs out before a worker picks it up is never sent. Answering inside the send lets the
+     * time-to-live tests use a timeout no test ever waits for.
+     */
+    private void answerEveryRequestAtOnce() {
+        Mockito.when(streamBridge.send(
+                       anyString(),
+                       any(Message.class)
+               ))
+               .thenAnswer(invocation -> {
+                   Message<?> request = invocation.getArgument(1);
+                   requestReplyService.onReplyReceived(
+                           MessageBuilder.fromMessage(request)
+                                         .setHeader(SpringHeaderParser.MULTI_TOTAL_REPLIES, "0")
+                                         .build()
+                   );
+                   return true;
+               });
+    }
+
+    private Message<?> sentRequest() {
+        Mockito.verify(streamBridge).send(anyString(), messageCaptor.capture());
+        return messageCaptor.getValue();
     }
 
     @Test

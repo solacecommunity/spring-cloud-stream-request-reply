@@ -222,9 +222,12 @@ it in `additionalHeaders` or an interceptor instead.
 A message interceptor runs last and sees the time‑to‑live the library set; it may change or remove it.
 An interceptor that sets `solace_expiration` has to remove `solace_timeToLive`.
 
-A request `Message` that arrived over Solace carries `solace_timeToLive` already, 0 if its sender set none.
-Sent on as a request, it keeps that lifetime instead of taking the timeout; remove the header to get the
-timeout.
+A request `Message` that arrived over Solace carries `solace_timeToLive` and `solace_expiration` already,
+0 if its sender set none. Sent on as a request, it keeps that lifetime instead of taking the timeout;
+remove both headers to get the timeout.
+
+`additionalHeaders` given to `wrap` apply to the replies the wrapped function returns, not to the error
+reply of a forwarded exception, which always takes the request's time‑to‑live.
 
 The broker only expires guaranteed messages, and only on a queue that respects the time‑to‑live
 (`respect-ttl`). It discards an expired message, or moves it to the queue's dead message queue if there

@@ -173,7 +173,9 @@ contexts (see §6). If a bean with the binding name already exists, do not overr
   between 1 ms and ten years (Solace reads 0 as "never expire", and JCSMP refuses to send more than ten
   years); never overwrite a lifetime the message already carries; and never set a time‑to‑live and
   `solace_expiration` together. On a reply it is set after
-  every other header, `additionalHeaders` included, so that it sees a lifetime the caller set.
+  every other header, `additionalHeaders` included, so that it sees a lifetime the caller set. Writing is
+  Solace‑only: a custom `MessageTimeToLiveParser` changes which time‑to‑live a reply copies, not which header
+  it is written to.
 - **Grouping thresholds** are load‑bearing constants: flush at 1 MB, at 10 000 messages, or after the group
   timeout (default 200 ms). Changing them affects broker behaviour and interop — do so deliberately and
   document it.
