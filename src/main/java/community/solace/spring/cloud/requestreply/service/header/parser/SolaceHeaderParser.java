@@ -1,14 +1,15 @@
 package community.solace.spring.cloud.requestreply.service.header.parser;
 
+import java.time.Duration;
+import java.util.Optional;
+
 import com.solacesystems.jcsmp.Destination;
 import community.solace.spring.cloud.requestreply.service.header.parser.correlationid.MessageHeaderCorrelationIdParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.destination.MessageHeaderDestinationParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.replyto.MessageHeaderReplyToParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.timetolive.MessageHeaderTimeToLiveParser;
-import org.springframework.messaging.MessageHeaders;
 
-import java.time.Duration;
-import java.util.Optional;
+import org.springframework.messaging.MessageHeaders;
 
 public class SolaceHeaderParser implements MessageHeaderCorrelationIdParser, MessageHeaderDestinationParser, MessageHeaderReplyToParser, MessageHeaderTimeToLiveParser {
     public static final String TIME_TO_LIVE = "solace_timeToLive"/*SolaceHeaders.TIME_TO_LIVE*/;
