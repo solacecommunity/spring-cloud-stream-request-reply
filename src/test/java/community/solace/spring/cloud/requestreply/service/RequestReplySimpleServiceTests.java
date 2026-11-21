@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import community.solace.spring.cloud.requestreply.AbstractRequestReplySimpleIT;
 import community.solace.spring.cloud.requestreply.model.SensorReading;
+import community.solace.spring.cloud.requestreply.service.header.parser.SolaceHeaderParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.SpringHeaderParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.RemoteErrorException;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,7 @@ import static community.solace.spring.cloud.requestreply.model.SensorReading.Bas
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -286,6 +288,103 @@ class RequestReplySimpleServiceTests extends AbstractRequestReplySimpleIT {
         resetMocks();
     }
 
+
+    @Test
+    void requestAndAwaitReplyToTopic_expectTimeoutAsTimeToLive_whenRequestSent() {
+        assertThrows(TimeoutException.class, () -> requestReplyService.requestAndAwaitReplyToTopic(
+                new SensorReading(),
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        ));
+
+        Mockito.verify(streamBridge).send(anyString(), messageCaptor.capture());
+        assertEquals(
+                100L,
+                messageCaptor.getValue().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
+        );
+    }
+
+    @Test
+    void requestReplyToTopicReactive_expectTimeoutAsTimeToLive_whenRequestSent() {
+        Flux<SensorReading> flux = requestReplyService.requestReplyToTopicReactive(
+                new SensorReading(),
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        );
+
+        StepVerifier
+                .create(flux)
+                .expectError(TimeoutException.class)
+                .verify(Duration.ofSeconds(10));
+
+        Mockito.verify(streamBridge).send(anyString(), messageCaptor.capture());
+        assertEquals(
+                100L,
+                messageCaptor.getValue().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
+        );
+    }
+
+    @Test
+    void requestAndAwaitReplyToTopic_expectCallersTimeToLive_whenGivenInAdditionalHeaders() {
+        long neverExpire = 0L;
+
+        assertThrows(TimeoutException.class, () -> requestReplyService.requestAndAwaitReplyToTopic(
+                new SensorReading(),
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(100),
+                Map.of(SolaceHeaderParser.TIME_TO_LIVE, neverExpire)
+        ));
+
+        Mockito.verify(streamBridge).send(anyString(), messageCaptor.capture());
+        assertEquals(
+                neverExpire,
+                messageCaptor.getValue().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
+        );
+    }
+
+    @Test
+    void requestAndAwaitReplyToTopicWithMsg_expectItsTimeToLiveKept_whenMessageCarriesOne() {
+        long timeToLiveOfTheMessage = 5_000L;
+
+        assertThrows(TimeoutException.class, () -> requestReplyService.requestAndAwaitReplyToTopic(
+                MessageBuilder.withPayload(new SensorReading())
+                              .setHeader(SolaceHeaderParser.TIME_TO_LIVE, timeToLiveOfTheMessage)
+                              .build(),
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        ));
+
+        Mockito.verify(streamBridge).send(anyString(), messageCaptor.capture());
+        assertEquals(
+                timeToLiveOfTheMessage,
+                messageCaptor.getValue().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class)
+        );
+    }
+
+    /**
+     * The Solace binder rejects a message whose expiration and time-to-live differ, so a request that carries an
+     * expiration must not get a time-to-live on top.
+     */
+    @Test
+    void requestAndAwaitReplyToTopicWithMsg_expectNoTimeToLiveAdded_whenMessageCarriesAnExpiration() {
+        assertThrows(TimeoutException.class, () -> requestReplyService.requestAndAwaitReplyToTopic(
+                MessageBuilder.withPayload(new SensorReading())
+                              .setHeader(SolaceHeaderParser.EXPIRATION, 1_682_928_000_000L)
+                              .build(),
+                "last_value/temperature/celsius/demo",
+                SensorReading.class,
+                Duration.ofMillis(100)
+        ));
+
+        Mockito.verify(streamBridge).send(anyString(), messageCaptor.capture());
+        assertNull(
+                messageCaptor.getValue().getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE)
+        );
+    }
 
     @Test
     void requestAndAwaitReplyToTopic_expectException_whenErrorResponse() {

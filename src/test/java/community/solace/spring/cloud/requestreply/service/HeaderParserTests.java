@@ -6,6 +6,7 @@ import community.solace.spring.cloud.requestreply.service.header.parser.correlat
 import community.solace.spring.cloud.requestreply.service.header.parser.destination.MessageDestinationParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.errormessage.MessageErrorMessageParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.replyto.MessageReplyToParser;
+import community.solace.spring.cloud.requestreply.service.header.parser.timetolive.MessageTimeToLiveParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.totalreplies.MessageTotalRepliesParser;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,9 @@ class HeaderParserTests extends AbstractRequestReplySimpleIT {
 
     @Autowired
     private List<MessageErrorMessageParser> messageErrorMessageParsers;
+
+    @Autowired
+    private List<MessageTimeToLiveParser> messageTimeToLiveParsers;
 
     @Test
     void correlationIdParsersShouldNotThrowExceptionWhenGivenNull() {
@@ -70,6 +74,13 @@ class HeaderParserTests extends AbstractRequestReplySimpleIT {
     void errorMessageParsersShouldNotThrowExceptionWhenGivenNull() {
         for (MessageErrorMessageParser parser : messageErrorMessageParsers) {
             assertNull((parser).getErrorMessage(null), String.format("%s can not handle null values", parser));
+        }
+    }
+
+    @Test
+    void timeToLiveParsersShouldNotThrowExceptionWhenGivenNull() {
+        for (MessageTimeToLiveParser parser : messageTimeToLiveParsers) {
+            assertNull((parser).getTimeToLive(null), String.format("%s can not handle null values", parser));
         }
     }
 
