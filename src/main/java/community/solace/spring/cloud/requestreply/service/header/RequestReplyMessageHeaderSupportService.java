@@ -489,8 +489,10 @@ public class RequestReplyMessageHeaderSupportService {
     }
 
     /**
-     * The time-to-live the request arrived with, less the time since it arrived, so that a reply expires when the
-     * requester stops waiting for it.
+     * The time-to-live the request arrived with, less the time since it arrived. A message arrives with the
+     * time-to-live its sender set, not with what is left of it: the end of life derived from it at sending is not
+     * handed on. A reply therefore expires no earlier than the requester stops waiting, and later only by as long as
+     * the request waited to be delivered.
      */
     private Duration remainingTimeToLive(Message<?> request) {
         Duration requestTimeToLive = getTimeToLive(request);

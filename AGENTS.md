@@ -168,7 +168,10 @@ contexts (see §6). If a bean with the binding name already exists, do not overr
   it is **not** a Spring `@ConfigurationProperties` value, so it is set with `-D`, not `application.yaml`.
 - **Message time‑to‑live follows the timeout.** The requester stamps the timeout as `solace_timeToLive`; a
   reply gets the request's time‑to‑live less the time since the request message was built on the responder,
-  so the responder's clock alone decides. `MessageTimeToLive` is the one place that writes it, and it keeps
+  so the responder's clock alone decides. A message arrives with the time‑to‑live its sender set, not with
+  what is left: JCSMP derives the end of life (`expiration`) from it at sending but does not send it while a
+  time‑to‑live is set. The reply's value is therefore an upper bound, too long by as long as the request
+  waited to be delivered and never too short. `MessageTimeToLive` is the one place that writes it, and it keeps
   three rules: never write 0 (Solace reads it as "never expire", so the minimum is 1 ms); never overwrite a
   lifetime the message already carries; and never add a time‑to‑live next to `solace_expiration`, because
   the Solace binder rejects a message whose two lifetime headers differ.

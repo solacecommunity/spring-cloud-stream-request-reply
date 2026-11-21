@@ -224,7 +224,10 @@ is one: the Solace binder marks messages DMQ‑eligible by default (`solace_dmqE
 message the time‑to‑live has no effect.
 
 The reply's time‑to‑live is measured on the responder's own clock, from the moment the request message
-was built there, so it does not depend on the requester's and responder's clocks agreeing.
+was built there, so it does not depend on the requester's and responder's clocks agreeing. A message
+arrives with the time‑to‑live its sender set, not with what is left of it; the end of life derived from
+it at sending is not handed on. A reply can therefore outlive the requester's wait by as long as the
+request waited to be delivered, but it never gets less time than the requester has left.
 
 ### Single vs. multi response
 
