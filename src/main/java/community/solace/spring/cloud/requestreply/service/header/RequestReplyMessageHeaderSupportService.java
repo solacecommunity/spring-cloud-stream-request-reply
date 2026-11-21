@@ -1,7 +1,6 @@
 package community.solace.spring.cloud.requestreply.service.header;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -177,7 +176,7 @@ public class RequestReplyMessageHeaderSupportService {
 
     /**
      * wrap the given function, copying message headers from incoming to outgoing message,
-     * properly setting correlation ID, target and the time-to-live left over from the request
+     * properly setting correlation ID, target and the time-to-live of the request
      *
      * @param <Q>                   incoming message payload type
      * @param <A>                   outgoing message payload type
@@ -193,7 +192,7 @@ public class RequestReplyMessageHeaderSupportService {
 
     /**
      * wrap the given function, copying message headers from incoming to outgoing message,
-     * properly setting correlation ID, target and the time-to-live left over from the request
+     * properly setting correlation ID, target and the time-to-live of the request
      *
      * @param <Q>                   incoming message payload type
      * @param <A>                   outgoing message payload type
@@ -212,7 +211,7 @@ public class RequestReplyMessageHeaderSupportService {
 
     /**
      * wrap the given function, copying message headers from incoming to outgoing message,
-     * properly setting correlation ID, target and the time-to-live left over from the request
+     * properly setting correlation ID, target and the time-to-live of the request
      *
      * @param <Q>                   incoming message payload type
      * @param <A>                   outgoing message payload type
@@ -240,6 +239,7 @@ public class RequestReplyMessageHeaderSupportService {
                         mb.setHeader(header.getKey(), header.getValue());
                     }
                 }
+                adoptTimeToLive(request, mb);
                 return this.replyWrappingInterceptor.interceptReplyWrappingPayloadMessage(mb.build(), bindingName);
             }
             catch (Exception e) {
@@ -260,7 +260,7 @@ public class RequestReplyMessageHeaderSupportService {
 
     /**
      * wrap the given function, copying message headers from incoming to outgoing message,
-     * properly setting correlation ID, target and the time-to-live left over from the request
+     * properly setting correlation ID, target and the time-to-live of the request
      *
      * @param <Q>                   incoming message payload type
      * @param <A>                   outgoing message payload type
@@ -359,7 +359,7 @@ public class RequestReplyMessageHeaderSupportService {
 
     /**
      * wrap the given function, copying message headers from incoming to outgoing message,
-     * properly setting correlation ID, target and the time-to-live left over from the request
+     * properly setting correlation ID, target and the time-to-live of the request
      *
      * @param <Q>             incoming message payload type
      * @param <A>             outgoing message payload type
@@ -373,7 +373,7 @@ public class RequestReplyMessageHeaderSupportService {
 
     /**
      * wrap the given function, copying message headers from incoming to outgoing message,
-     * properly setting correlation ID, target and the time-to-live left over from the request
+     * properly setting correlation ID, target and the time-to-live of the request
      *
      * @param <Q>             incoming message payload type
      * @param <A>             outgoing message payload type
@@ -459,6 +459,7 @@ public class RequestReplyMessageHeaderSupportService {
 
         mb.setHeader(SpringHeaderParser.MULTI_TOTAL_REPLIES, totalReplies);
         mb.setHeader(SpringHeaderParser.MULTI_REPLY_INDEX, replyIndex);
+        adoptTimeToLive(request, mb);
     }
 
     private <Q, A> void transferAndAdoptHeaders(Message<Q> request,
@@ -481,36 +482,17 @@ public class RequestReplyMessageHeaderSupportService {
                 mb.setHeaderIfAbsent(headerToCopy, val);
             }
         }
-
-        Duration replyTimeToLive = remainingTimeToLive(request);
-        if (replyTimeToLive != null) {
-            setTimeToLiveIfAbsent(mb, replyTimeToLive);
-        }
     }
 
     /**
-     * The time-to-live the request arrived with, less the time since it arrived. A message arrives with the
-     * time-to-live its sender set, not with what is left of it: the end of life derived from it at sending is not
-     * handed on. A reply therefore expires no earlier than the requester stops waiting, and later only by as long as
-     * the request waited to be delivered.
+     * Gives the reply the time-to-live of the request, unless the reply already carries a lifetime. Runs after every
+     * other header of the reply is set, so that it sees a lifetime set by the caller.
      */
-    private Duration remainingTimeToLive(Message<?> request) {
+    private <Q, A> void adoptTimeToLive(Message<Q> request, MessageBuilder<A> mb) {
         Duration requestTimeToLive = getTimeToLive(request);
-        if (requestTimeToLive == null) {
-            return null;
+        if (requestTimeToLive != null) {
+            setTimeToLiveIfAbsent(mb, requestTimeToLive);
         }
-        return requestTimeToLive.minus(timeSinceArrival(request));
-    }
-
-    /**
-     * The binder builds the request message when the request arrives, so its timestamp is the arrival on this host.
-     */
-    private static Duration timeSinceArrival(Message<?> request) {
-        Long arrival = request.getHeaders().getTimestamp();
-        if (arrival == null) {
-            return Duration.ZERO;
-        }
-        return Duration.between(Instant.ofEpochMilli(arrival), Instant.now());
     }
 
     @FunctionalInterface

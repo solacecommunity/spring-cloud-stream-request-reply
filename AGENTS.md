@@ -120,8 +120,8 @@ Invariants the wrappers must preserve:
 - forward a matching `applicationException` as an error reply (`errorMessage` header) which the requester
   surfaces as `RemoteErrorException` (or an errored `Flux`),
 - copy any headers listed in `copyHeadersOnWrap`,
-- set `solace_timeToLive` on every reply, the terminal and error replies included, to what is left of the
-  request's time‑to‑live (see §6).
+- set `solace_timeToLive` on every reply, the terminal and error replies included, to the request's
+  time‑to‑live (see §6).
 
 **Reply routing:** for each `bindingMapping`, `RequestReplyFunctionRegistrar` registers a
 `Consumer<Message<?>>` bean named after the binding, wired to `-in-0`, delegating to
@@ -167,14 +167,12 @@ contexts (see §6). If a bean with the binding name already exists, do not overr
   `spring.cloud.stream.requestreply.dedup.maxBitsWhenUnknown` (via `Integer.getInteger`, default 100000) —
   it is **not** a Spring `@ConfigurationProperties` value, so it is set with `-D`, not `application.yaml`.
 - **Message time‑to‑live follows the timeout.** The requester stamps the timeout as `solace_timeToLive`; a
-  reply gets the request's time‑to‑live less the time since the request message was built on the responder,
-  so the responder's clock alone decides. A message arrives with the time‑to‑live its sender set, not with
-  what is left: JCSMP derives the end of life (`expiration`) from it at sending but does not send it while a
-  time‑to‑live is set. The reply's value is therefore an upper bound, too long by as long as the request
-  waited to be delivered and never too short. `MessageTimeToLive` is the one place that writes it, and it keeps
-  three rules: never write 0 (Solace reads it as "never expire", so the minimum is 1 ms); never overwrite a
-  lifetime the message already carries; and never add a time‑to‑live next to `solace_expiration`, because
-  the Solace binder rejects a message whose two lifetime headers differ.
+  reply takes the request's time‑to‑live unchanged. A responder cannot know what is left of it: a message
+  arrives with the time‑to‑live its sender set, and JCSMP does not send the end of life (`expiration`) it
+  derives from it. `MessageTimeToLive` is the one place that writes it, and it keeps three rules: never write
+  0 (Solace reads it as "never expire", so the minimum is 1 ms); never overwrite a lifetime the message
+  already carries; and never set a time‑to‑live and `solace_expiration` together. On a reply it is set after
+  every other header, `additionalHeaders` included, so that it sees a lifetime the caller set.
 - **Grouping thresholds** are load‑bearing constants: flush at 1 MB, at 10 000 messages, or after the group
   timeout (default 200 ms). Changing them affects broker behaviour and interop — do so deliberately and
   document it.
