@@ -10,8 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.config.BindingServiceProperties;
 import org.springframework.integration.support.MessageBuilder;
-import org.springframework.integration.support.MutableMessage;
-import org.springframework.integration.support.MutableMessageBuilder;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 import reactor.core.publisher.Flux;
@@ -19,9 +17,7 @@ import reactor.test.StepVerifier;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -30,8 +26,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequestReplySimpleIT {
     private static final Duration REQUEST_TIME_TO_LIVE = Duration.ofSeconds(10);
-    private static final Duration TIME_SINCE_ARRIVAL = Duration.ofSeconds(3);
-    private static final Duration SLACK_FOR_A_SLOW_TEST = Duration.ofSeconds(1);
 
     @Autowired
     RequestReplyMessageHeaderSupportService supportService;
@@ -705,25 +699,12 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
     }
 
     @Test
-    void wrap_expectRemainingTimeToLive_whenRequestCarriesOne() {
+    void wrap_expectTheRequestsTimeToLive_whenRequestCarriesOne() {
         Function<Message<String>, Message<String>> supplier = supportService.wrap(m -> m, (Class<Throwable>) null);
 
-        Message<String> answerM = supplier.apply(requestArrivedAgo(TIME_SINCE_ARRIVAL, REQUEST_TIME_TO_LIVE));
+        Message<String> answerM = supplier.apply(requestWithTimeToLive(REQUEST_TIME_TO_LIVE));
 
-        assertTimeToLiveLeftOver(answerM);
-    }
-
-    @Test
-    void wrap_expectShortestTimeToLive_whenRequestExpiredBeforeTheReply() {
-        Function<Message<String>, Message<String>> supplier = supportService.wrap(m -> m, (Class<Throwable>) null);
-
-        Message<String> answerM = supplier.apply(requestArrivedAgo(REQUEST_TIME_TO_LIVE.plus(TIME_SINCE_ARRIVAL), REQUEST_TIME_TO_LIVE));
-
-        assertEquals(
-                1L,
-                answerM.getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class),
-                "A time-to-live of 0 would let the reply never expire"
-        );
+        assertTheRequestsTimeToLive(answerM);
     }
 
     @Test
@@ -744,7 +725,7 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
     void wrap_expectNoTimeToLive_whenRequestNeverExpires() {
         Function<Message<String>, Message<String>> supplier = supportService.wrap(m -> m, (Class<Throwable>) null);
 
-        Message<String> answerM = supplier.apply(requestArrivedAgo(TIME_SINCE_ARRIVAL, Duration.ZERO));
+        Message<String> answerM = supplier.apply(requestWithTimeToLive(Duration.ZERO));
 
         assertNull(
                 answerM.getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE)
@@ -760,7 +741,7 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
                 (Class<Throwable>) null
         );
 
-        Message<String> answerM = supplier.apply(requestArrivedAgo(TIME_SINCE_ARRIVAL, REQUEST_TIME_TO_LIVE));
+        Message<String> answerM = supplier.apply(requestWithTimeToLive(REQUEST_TIME_TO_LIVE));
 
         assertEquals(
                 neverExpire,
@@ -768,8 +749,26 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
         );
     }
 
+    /**
+     * A Solace message must never carry a time-to-live and an expiration together.
+     */
     @Test
-    void wrap_exception_expectRemainingTimeToLiveOnTheErrorReply() {
+    void wrap_expectNoTimeToLive_whenAdditionalHeadersGiveAnExpiration() {
+        Function<Message<String>, Message<String>> supplier = supportService.wrap(
+                m -> m,
+                Map.of(SolaceHeaderParser.EXPIRATION, 1_682_928_000_000L),
+                (Class<Throwable>) null
+        );
+
+        Message<String> answerM = supplier.apply(requestWithTimeToLive(REQUEST_TIME_TO_LIVE));
+
+        assertNull(
+                answerM.getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE)
+        );
+    }
+
+    @Test
+    void wrap_exception_expectTheRequestsTimeToLiveOnTheErrorReply() {
         Function<Message<String>, Message<String>> supplier = supportService.wrap(
                 m -> {
                     throw new IllegalArgumentException("The error message");
@@ -777,16 +776,16 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
                 IllegalArgumentException.class
         );
 
-        Message<String> answerM = supplier.apply(requestArrivedAgo(TIME_SINCE_ARRIVAL, REQUEST_TIME_TO_LIVE));
+        Message<String> answerM = supplier.apply(requestWithTimeToLive(REQUEST_TIME_TO_LIVE));
 
-        assertTimeToLiveLeftOver(answerM);
+        assertTheRequestsTimeToLive(answerM);
     }
 
     @Test
-    void wrapList_groupedResponses_expectRemainingTimeToLive() {
+    void wrapList_groupedResponses_expectTheRequestsTimeToLive() {
         Function<Message<String>, List<Message<String>>> supplier = supportService.wrapList(m -> List.of(m, m), "requestReplyRepliesDemo-out-0", (Class<Throwable>) null);
 
-        Message<String> request = MutableMessageBuilder.fromMessage(requestArrivedAgo(TIME_SINCE_ARRIVAL, REQUEST_TIME_TO_LIVE))
+        Message<String> request = MessageBuilder.fromMessage(requestWithTimeToLive(REQUEST_TIME_TO_LIVE))
                 .setHeader(SpringHeaderParser.GROUPED_MESSAGES, true)
                 .build();
         List<Message<String>> answers = supplier.apply(request);
@@ -795,52 +794,39 @@ class RequestReplySimpleMessageHeaderSupportServiceTests extends AbstractRequest
                 1,
                 answers.size()
         );
-        assertTimeToLiveLeftOver(answers.get(0));
+        assertTheRequestsTimeToLive(answers.get(0));
     }
 
     @Test
-    void wrapFlux_expectRemainingTimeToLiveOnEveryReply_includingTheFinishingOne() {
+    void wrapFlux_expectTheRequestsTimeToLiveOnEveryReply_includingTheFinishingOne() {
         Function<Flux<Message<String>>, Flux<Message<String>>> supplier = supportService.wrapFlux((payloadIn, outSink) -> {
             outSink.next("first msg");
             outSink.complete();
         }, "requestReplyRepliesDemo-out-0");
 
-        Flux<Message<String>> answers = supplier.apply(Flux.just(requestArrivedAgo(TIME_SINCE_ARRIVAL, REQUEST_TIME_TO_LIVE)));
+        Flux<Message<String>> answers = supplier.apply(Flux.just(requestWithTimeToLive(REQUEST_TIME_TO_LIVE)));
 
         StepVerifier
                 .create(answers)
-                .consumeNextWith(this::assertTimeToLiveLeftOver)
-                .consumeNextWith(this::assertTimeToLiveLeftOver)
+                .consumeNextWith(this::assertTheRequestsTimeToLive)
+                .consumeNextWith(this::assertTheRequestsTimeToLive)
                 .expectComplete()
                 .verify(Duration.ofSeconds(10));
     }
 
-    /**
-     * {@link MessageBuilder} sets the timestamp of a message to now; a {@link MutableMessage} keeps the one given,
-     * which lets a test send a request that arrived a while ago.
-     */
-    private static Message<String> requestArrivedAgo(Duration timeSinceArrival, Duration requestTimeToLive) {
-        long arrival = Instant.now().minus(timeSinceArrival).toEpochMilli();
-        Map<String, Object> headers = new HashMap<>();
-        headers.put(MessageHeaders.TIMESTAMP, arrival);
-        headers.put("correlationId", "my-correlationId-my");
-        headers.put(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after");
-        headers.put(SolaceHeaderParser.TIME_TO_LIVE, requestTimeToLive.toMillis());
-
-        Message<String> request = new MutableMessage<>("demo", headers);
-
-        assertEquals(arrival, request.getHeaders().getTimestamp(), "The request must keep the arrival it was given");
-        return request;
+    private static Message<String> requestWithTimeToLive(Duration requestTimeToLive) {
+        return MessageBuilder.withPayload("demo")
+                .setHeader("correlationId", "my-correlationId-my")
+                .setHeader(MessageHeaders.REPLY_CHANNEL, "my-dest-my/{StagePlaceholder}/the-event-after")
+                .setHeader(SolaceHeaderParser.TIME_TO_LIVE, requestTimeToLive.toMillis())
+                .build();
     }
 
-    private void assertTimeToLiveLeftOver(Message<String> reply) {
-        long leftOver = REQUEST_TIME_TO_LIVE.minus(TIME_SINCE_ARRIVAL).toMillis();
-        Long replyTimeToLive = reply.getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class);
-
-        assertNotNull(replyTimeToLive, "The reply must carry what is left of the request's time-to-live");
-        assertTrue(
-                replyTimeToLive <= leftOver && replyTimeToLive > leftOver - SLACK_FOR_A_SLOW_TEST.toMillis(),
-                "The reply must expire with the request: expected about " + leftOver + " ms, but was " + replyTimeToLive + " ms"
+    private void assertTheRequestsTimeToLive(Message<String> reply) {
+        assertEquals(
+                REQUEST_TIME_TO_LIVE.toMillis(),
+                reply.getHeaders().get(SolaceHeaderParser.TIME_TO_LIVE, Long.class),
+                "The reply must expire like the request it answers"
         );
     }
 

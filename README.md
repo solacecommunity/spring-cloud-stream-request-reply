@@ -34,7 +34,8 @@ to the caller.
 - Non‑blocking variants returning `CompletableFuture` or reactive `Flux`.
 - **Request / multi‑reply**: receive zero to N answers for one request.
 - Per‑request **timeouts** and automatic cleanup of in‑flight bookkeeping.
-- The timeout is also the Solace **time‑to‑live** of the request and its replies, so neither outlives the wait.
+- The timeout is also the Solace **time‑to‑live** of the request and its replies, so neither waits on a queue
+  long after the requester gave up.
 - Automatic **correlation id** generation and reply‑to routing.
 - Helper methods (`wrap`, `wrapList`, `wrapFlux`) for the responder side that set the reply headers for
   you and can **forward selected exceptions** back to the requester.
@@ -205,29 +206,22 @@ is raised. Bookkeeping for the request is always cleaned up on success, error or
 A request that is not answered within the timeout, and a reply that arrives after it, are of no use to
 anyone. The library therefore sets the Solace time‑to‑live (`solace_timeToLive`):
 
-- on the **request**, to the timeout;
-- on every **reply** built by the `wrap*` helpers, to the time‑to‑live the request arrived with, less the
-  time since it arrived. A request without a time‑to‑live gets replies without one. A reply whose request
-  has already expired gets 1 ms, because 0 means "never expire".
+- on the **request**, to the timeout. A timeout below 1 ms is sent as 1 ms, because 0 means "never
+  expire";
+- on every **reply** built by the `wrap*` helpers, to the time‑to‑live of the request. A reply therefore
+  lives at most one timeout after it was sent. A request without a time‑to‑live gets replies without one.
 
 A time‑to‑live you set yourself wins: on a request `Message`, in `additionalHeaders`, in a message
-interceptor, or copied onto the reply with `copyHeadersOnWrap`. A message that carries
-`solace_expiration` gets no time‑to‑live either, because the Solace binder rejects the two headers with
-different values. To send a request that never expires, pass `solace_timeToLive` = `0L` in
-`additionalHeaders`. A `solace_timeToLive` in the binding's producer `defaultHeader` no longer applies,
-because the Solace binder lets a message header win over a default; set it in `additionalHeaders` or an
-interceptor instead.
+interceptor, or copied onto the reply with `copyHeadersOnWrap`. A time‑to‑live and an expiration must never
+both be set, so a message that carries `solace_expiration` gets no time‑to‑live. To send a request that
+never expires, pass `solace_timeToLive` = `0L` in `additionalHeaders`. A `solace_timeToLive` in the
+binding's producer `defaultHeader` no longer applies, because the Solace binder lets a message header win
+over a default; set it in `additionalHeaders` or an interceptor instead.
 
 The broker only expires guaranteed messages, and only on a queue that respects the time‑to‑live
 (`respect-ttl`). It discards an expired message, or moves it to the queue's dead message queue if there
 is one: the Solace binder marks messages DMQ‑eligible by default (`solace_dmqEligible`). On a direct
 message the time‑to‑live has no effect.
-
-The reply's time‑to‑live is measured on the responder's own clock, from the moment the request message
-was built there, so it does not depend on the requester's and responder's clocks agreeing. A message
-arrives with the time‑to‑live its sender set, not with what is left of it; the end of life derived from
-it at sending is not handed on. A reply can therefore outlive the requester's wait by as long as the
-request waited to be delivered, but it never gets less time than the requester has left.
 
 ### Single vs. multi response
 

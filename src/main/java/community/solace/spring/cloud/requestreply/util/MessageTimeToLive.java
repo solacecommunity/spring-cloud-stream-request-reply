@@ -8,12 +8,12 @@ import community.solace.spring.cloud.requestreply.service.header.parser.SolaceHe
 import org.springframework.integration.support.MessageBuilder;
 
 /**
- * Gives a request or a reply the Solace time-to-live after which the broker discards it, so that it does not
- * outlive the requester's wait for it.
+ * Gives a request or a reply the Solace time-to-live after which the broker discards it, so that it does not wait on
+ * a queue long after the requester stopped waiting for it.
  */
 public final class MessageTimeToLive {
     /**
-     * Solace reads a time-to-live of 0 as "never expire", so a lifetime that is already over is written as this.
+     * Solace reads a time-to-live of 0 as "never expire", so a lifetime below a millisecond is written as this.
      */
     private static final Duration SHORTEST_TIME_TO_LIVE = Duration.ofMillis(1);
 
@@ -22,10 +22,10 @@ public final class MessageTimeToLive {
 
     /**
      * Sets the time-to-live of the message, unless it already carries a lifetime of its own: a time-to-live, or an
-     * expiration, which the Solace binder rejects next to a time-to-live of a different value.
+     * expiration. A Solace message must never carry both.
      *
      * @param messageBuilder the message to set the time-to-live on
-     * @param timeToLive     how long the message stays useful; zero or less is written as the shortest time-to-live
+     * @param timeToLive     how long the message stays useful; below a millisecond it is written as one millisecond
      */
     public static void setTimeToLiveIfAbsent(MessageBuilder<?> messageBuilder, Duration timeToLive) {
         Map<String, Object> headers = messageBuilder.getHeaders();
