@@ -16,6 +16,10 @@ public final class MessageTimeToLive {
      * Solace reads a time-to-live of 0 as "never expire", so a lifetime below a millisecond is written as this.
      */
     private static final Duration SHORTEST_TIME_TO_LIVE = Duration.ofMillis(1);
+    /**
+     * JCSMP rejects a longer time-to-live with an {@link IllegalArgumentException} when the message is sent.
+     */
+    private static final Duration LONGEST_TIME_TO_LIVE = Duration.ofDays(3650);
 
     private MessageTimeToLive() {
     }
@@ -25,7 +29,8 @@ public final class MessageTimeToLive {
      * expiration. A Solace message must never carry both.
      *
      * @param messageBuilder the message to set the time-to-live on
-     * @param timeToLive     how long the message stays useful; below a millisecond it is written as one millisecond
+     * @param timeToLive     how long the message stays useful; written as at least one millisecond and at most ten
+     *                       years, the bounds Solace accepts
      */
     public static void setTimeToLiveIfAbsent(MessageBuilder<?> messageBuilder, Duration timeToLive) {
         Map<String, Object> headers = messageBuilder.getHeaders();
@@ -35,7 +40,16 @@ public final class MessageTimeToLive {
             return;
         }
 
-        Duration atLeastTheShortest = timeToLive.compareTo(SHORTEST_TIME_TO_LIVE) < 0 ? SHORTEST_TIME_TO_LIVE : timeToLive;
-        messageBuilder.setHeader(SolaceHeaderParser.TIME_TO_LIVE, atLeastTheShortest.toMillis());
+        messageBuilder.setHeader(SolaceHeaderParser.TIME_TO_LIVE, withinTheBoundsSolaceAccepts(timeToLive).toMillis());
+    }
+
+    private static Duration withinTheBoundsSolaceAccepts(Duration timeToLive) {
+        if (timeToLive.compareTo(SHORTEST_TIME_TO_LIVE) < 0) {
+            return SHORTEST_TIME_TO_LIVE;
+        }
+        if (timeToLive.compareTo(LONGEST_TIME_TO_LIVE) > 0) {
+            return LONGEST_TIME_TO_LIVE;
+        }
+        return timeToLive;
     }
 }

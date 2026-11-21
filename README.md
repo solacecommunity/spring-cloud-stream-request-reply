@@ -206,17 +206,25 @@ is raised. Bookkeeping for the request is always cleaned up on success, error or
 A request that is not answered within the timeout, and a reply that arrives after it, are of no use to
 anyone. The library therefore sets the Solace time‑to‑live (`solace_timeToLive`):
 
-- on the **request**, to the timeout. A timeout below 1 ms is sent as 1 ms, because 0 means "never
-  expire";
+- on the **request**, to the timeout, kept within what Solace accepts: a timeout below 1 ms is sent as
+  1 ms, because 0 means "never expire", and one above ten years as ten years, because JCSMP refuses to
+  send a longer one;
 - on every **reply** built by the `wrap*` helpers, to the time‑to‑live of the request. A reply therefore
   lives at most one timeout after it was sent. A request without a time‑to‑live gets replies without one.
 
-A time‑to‑live you set yourself wins: on a request `Message`, in `additionalHeaders`, in a message
-interceptor, or copied onto the reply with `copyHeadersOnWrap`. A time‑to‑live and an expiration must never
-both be set, so a message that carries `solace_expiration` gets no time‑to‑live. To send a request that
-never expires, pass `solace_timeToLive` = `0L` in `additionalHeaders`. A `solace_timeToLive` in the
-binding's producer `defaultHeader` no longer applies, because the Solace binder lets a message header win
-over a default; set it in `additionalHeaders` or an interceptor instead.
+A time‑to‑live you set yourself wins: on a request `Message`, in `additionalHeaders`, or copied onto the
+reply with `copyHeadersOnWrap`. A time‑to‑live and an expiration must never both be set, so a message that
+carries `solace_expiration` gets no time‑to‑live. To send a request that never expires, pass
+`solace_timeToLive` = `0L` in `additionalHeaders`. A `solace_timeToLive` in the binding's producer
+`defaultHeader` no longer applies, because the Solace binder lets a message header win over a default; set
+it in `additionalHeaders` or an interceptor instead.
+
+A message interceptor runs last and sees the time‑to‑live the library set; it may change or remove it.
+An interceptor that sets `solace_expiration` has to remove `solace_timeToLive`.
+
+A request `Message` that arrived over Solace carries `solace_timeToLive` already, 0 if its sender set none.
+Sent on as a request, it keeps that lifetime instead of taking the timeout; remove the header to get the
+timeout.
 
 The broker only expires guaranteed messages, and only on a queue that respects the time‑to‑live
 (`respect-ttl`). It discards an expired message, or moves it to the queue's dead message queue if there
@@ -597,7 +605,8 @@ See [`examples/customized_logging`](examples/customized_logging) for a full appl
   [`examples/customized_reply_to_header_response`](examples/customized_reply_to_header_response).
 
 Both interfaces receive the binding name so you can behave differently per binding. If you do not
-provide your own, no‑op implementations are auto‑configured.
+provide your own, no‑op implementations are auto‑configured. The message an interceptor receives already
+carries the time‑to‑live the library set (see [Message time‑to‑live](#message-timetolive)).
 
 ### Extending to other binders
 
