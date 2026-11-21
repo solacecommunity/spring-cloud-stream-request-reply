@@ -1,6 +1,7 @@
 package community.solace.spring.cloud.requestreply.service.header;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,6 +19,7 @@ import community.solace.spring.cloud.requestreply.service.header.parser.errormes
 import community.solace.spring.cloud.requestreply.service.header.parser.replyto.MessageReplyToParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.totalreplies.MessageTotalRepliesParser;
 import community.solace.spring.cloud.requestreply.service.header.parser.replyindex.MessageReplyIndexParser;
+import community.solace.spring.cloud.requestreply.service.header.parser.timetolive.MessageTimeToLiveParser;
 import community.solace.spring.cloud.requestreply.service.messageinterceptor.ReplyWrappingInterceptor;
 import community.solace.spring.cloud.requestreply.util.MessageChunker;
 import org.apache.commons.lang3.tuple.Pair;
@@ -37,6 +39,8 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.StringUtils;
+
+import static community.solace.spring.cloud.requestreply.util.MessageTimeToLive.setTimeToLiveIfAbsent;
 
 @Service
 public class RequestReplyMessageHeaderSupportService {
@@ -61,6 +65,9 @@ public class RequestReplyMessageHeaderSupportService {
 
     @Autowired
     private List<MessageErrorMessageParser> errorMessageParsers;
+
+    @Autowired(required = false)
+    private List<MessageTimeToLiveParser> timeToLiveParsers = List.of();
 
     @Autowired
     private RequestReplyProperties requestReplyProperties;
@@ -150,8 +157,27 @@ public class RequestReplyMessageHeaderSupportService {
     }
 
     /**
+     * Reads the time-to-live of a message through the ordered time-to-live parsers.
+     *
+     * @param message the message to read
+     * @return the time-to-live the message carries, or {@code null} if it never expires
+     */
+    public Duration getTimeToLive(Message<?> message) {
+        if (message == null) {
+            return null;
+        }
+        for (MessageTimeToLiveParser p : timeToLiveParsers) {
+            Duration value = p.getTimeToLive(message);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    /**
      * wrap the given function, copying message headers from incoming to outgoing message,
-     * properly setting correlation ID and target
+     * properly setting correlation ID, target and the time-to-live left over from the request
      *
      * @param <Q>                   incoming message payload type
      * @param <A>                   outgoing message payload type
@@ -167,7 +193,7 @@ public class RequestReplyMessageHeaderSupportService {
 
     /**
      * wrap the given function, copying message headers from incoming to outgoing message,
-     * properly setting correlation ID and target
+     * properly setting correlation ID, target and the time-to-live left over from the request
      *
      * @param <Q>                   incoming message payload type
      * @param <A>                   outgoing message payload type
@@ -186,7 +212,7 @@ public class RequestReplyMessageHeaderSupportService {
 
     /**
      * wrap the given function, copying message headers from incoming to outgoing message,
-     * properly setting correlation ID and target
+     * properly setting correlation ID, target and the time-to-live left over from the request
      *
      * @param <Q>                   incoming message payload type
      * @param <A>                   outgoing message payload type
@@ -234,7 +260,7 @@ public class RequestReplyMessageHeaderSupportService {
 
     /**
      * wrap the given function, copying message headers from incoming to outgoing message,
-     * properly setting correlation ID and target
+     * properly setting correlation ID, target and the time-to-live left over from the request
      *
      * @param <Q>                   incoming message payload type
      * @param <A>                   outgoing message payload type
@@ -333,7 +359,7 @@ public class RequestReplyMessageHeaderSupportService {
 
     /**
      * wrap the given function, copying message headers from incoming to outgoing message,
-     * properly setting correlation ID and target
+     * properly setting correlation ID, target and the time-to-live left over from the request
      *
      * @param <Q>             incoming message payload type
      * @param <A>             outgoing message payload type
@@ -347,7 +373,7 @@ public class RequestReplyMessageHeaderSupportService {
 
     /**
      * wrap the given function, copying message headers from incoming to outgoing message,
-     * properly setting correlation ID and target
+     * properly setting correlation ID, target and the time-to-live left over from the request
      *
      * @param <Q>             incoming message payload type
      * @param <A>             outgoing message payload type
@@ -455,6 +481,34 @@ public class RequestReplyMessageHeaderSupportService {
                 mb.setHeaderIfAbsent(headerToCopy, val);
             }
         }
+
+        Duration replyTimeToLive = remainingTimeToLive(request);
+        if (replyTimeToLive != null) {
+            setTimeToLiveIfAbsent(mb, replyTimeToLive);
+        }
+    }
+
+    /**
+     * The time-to-live the request arrived with, less the time since it arrived, so that a reply expires when the
+     * requester stops waiting for it.
+     */
+    private Duration remainingTimeToLive(Message<?> request) {
+        Duration requestTimeToLive = getTimeToLive(request);
+        if (requestTimeToLive == null) {
+            return null;
+        }
+        return requestTimeToLive.minus(timeSinceArrival(request));
+    }
+
+    /**
+     * The binder builds the request message when the request arrives, so its timestamp is the arrival on this host.
+     */
+    private static Duration timeSinceArrival(Message<?> request) {
+        Long arrival = request.getHeaders().getTimestamp();
+        if (arrival == null) {
+            return Duration.ZERO;
+        }
+        return Duration.between(Instant.ofEpochMilli(arrival), Instant.now());
     }
 
     @FunctionalInterface

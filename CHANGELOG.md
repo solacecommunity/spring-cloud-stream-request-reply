@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- The request/reply timeout is now also the Solace time-to-live (`solace_timeToLive`) of the messages, so a request nobody answered in time, or a reply that comes too late, no longer waits on a persistent queue to be processed after the requester gave up. A request gets the timeout; a reply built by the `wrap*` helpers gets the time-to-live the request arrived with, less the time since it arrived, and at least 1 ms. A message that already carries `solace_timeToLive` or `solace_expiration` keeps its own lifetime, and `additionalHeaders` with `solace_timeToLive` = `0` sends a request that never expires. A `solace_timeToLive` in a binding's producer `defaultHeader` is now overridden; set it in `additionalHeaders` or an interceptor instead. The broker expires a message only on a queue that respects the time-to-live, and moves it to the queue's dead message queue if there is one, because the Solace binder marks messages DMQ-eligible by default. ([#84](https://github.com/solacecommunity/spring-cloud-stream-request-reply/issues/84))
+
 ## [6.1.5] - 2026-11-13
 ### Changed
 - Updated spring-boot-starter-solace-client-config from 3.1.4 to 3.1.5

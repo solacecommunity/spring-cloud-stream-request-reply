@@ -21,7 +21,7 @@ public interface RequestReplyService {
      * @param request            the request to be sent
      * @param requestDestination the topic name to send the request to. Example: my.supper.topic
      * @param expectedClass      the class the response shall be mapped to.
-     * @param timeoutPeriod      the timeout when to give up waiting for a response
+     * @param timeoutPeriod      the timeout when to give up waiting for a response, also set as the Solace time-to-live of the request
      * @return a {@link CompletableFuture} which can be used to await and retrieve the response
      */
     default <Q, A> A requestAndAwaitReplyToTopic(
@@ -41,7 +41,7 @@ public interface RequestReplyService {
      * @param request            the request to be sent
      * @param requestDestination the topic name to send the request to. Example: my.supper.topic
      * @param expectedClass      the class the response shall be mapped to.
-     * @param timeoutPeriod      the timeout when to give up waiting for a response
+     * @param timeoutPeriod      the timeout when to give up waiting for a response, also set as the Solace time-to-live of the request
      * @param additionalHeaders  additional headers to be added to the request message
      * @return a {@link CompletableFuture} which can be used to await and retrieve the response
      */
@@ -61,7 +61,7 @@ public interface RequestReplyService {
      * @param request       the request to be sent
      * @param bindingName   the message channel name to send the request to. Example: requestReplyRepliesDemoTibrv
      * @param expectedClass the class the response shall be mapped to
-     * @param timeoutPeriod the timeout when to give up waiting for a response
+     * @param timeoutPeriod the timeout when to give up waiting for a response, also set as the Solace time-to-live of the request
      * @return a {@link CompletableFuture} which can be used to await and retrieve the response
      */
     default <Q, A> A requestAndAwaitReplyToBinding(
@@ -81,7 +81,7 @@ public interface RequestReplyService {
      * @param request           the request to be sent
      * @param bindingName       the message channel name to send the request to. Example: requestReplyRepliesDemoTibrv
      * @param expectedClass     the class the response shall be mapped to
-     * @param timeoutPeriod     the timeout when to give up waiting for a response
+     * @param timeoutPeriod     the timeout when to give up waiting for a response, also set as the Solace time-to-live of the request
      * @param additionalHeaders additional headers to be added to the request message
      * @return a {@link CompletableFuture} which can be used to await and retrieve the response
      */
@@ -103,7 +103,7 @@ public interface RequestReplyService {
      * @param request       the request to be sent
      * @param bindingName   the message channel name to send the request to. Example: requestReplyRepliesDemoTibrv
      * @param expectedClass the class the response shall be mapped to
-     * @param timeoutPeriod the timeout when to give up waiting for a response
+     * @param timeoutPeriod the timeout when to give up waiting for a response, also set as the Solace time-to-live of the request
      * @return a {@link CompletableFuture} which can be used to await and retrieve the response
      */
     default <Q, A> CompletableFuture<A> requestReplyToBinding(
@@ -125,7 +125,7 @@ public interface RequestReplyService {
      * @param request           the request to be sent
      * @param bindingName       the message channel name to send the request to. Example: requestReplyRepliesDemoTibrv
      * @param expectedClass     the class the response shall be mapped to
-     * @param timeoutPeriod     the timeout when to give up waiting for a response
+     * @param timeoutPeriod     the timeout when to give up waiting for a response, also set as the Solace time-to-live of the request
      * @param additionalHeaders additional headers to be added to the request message
      * @return a {@link CompletableFuture} which can be used to await and retrieve the response
      */
@@ -147,7 +147,7 @@ public interface RequestReplyService {
      * @param request            the request to be sent
      * @param requestDestination the topic name to send the request to. Example: my.supper.topic
      * @param expectedClass      the class the response shall be mapped to
-     * @param timeoutPeriod      the timeout when to give up waiting for a response
+     * @param timeoutPeriod      the timeout when to give up waiting for a response, also set as the Solace time-to-live of the request
      * @return a {@link CompletableFuture} which can be used to await and retrieve the response
      */
     default <Q, A> CompletableFuture<A> requestReplyToTopic(
@@ -169,7 +169,7 @@ public interface RequestReplyService {
      * @param request            the request to be sent
      * @param requestDestination the topic name to send the request to. Example: my.supper.topic
      * @param expectedClass      the class the response shall be mapped to
-     * @param timeoutPeriod      the timeout when to give up waiting for a response
+     * @param timeoutPeriod      the timeout when to give up waiting for a response, also set as the Solace time-to-live of the request
      * @param additionalHeaders  additional headers to be added to the request message
      * @return a {@link CompletableFuture} which can be used to await and retrieve the response
      */
@@ -191,7 +191,7 @@ public interface RequestReplyService {
      * @param request       the request to be sent
      * @param bindingName   the message channel name to send the request to. Example: requestReplyRepliesDemoTibrv
      * @param expectedClass the class the response shall be mapped to
-     * @param timeoutPeriod the timeout when to give up waiting for a response
+     * @param timeoutPeriod the timeout when to give up waiting for a response, also set as the Solace time-to-live of the request
      * @return a {@link Flux} which can be used to receive responses
      */
     default <Q, A> Flux<A> requestReplyToBindingReactive(
@@ -213,7 +213,7 @@ public interface RequestReplyService {
      * @param request           the request to be sent
      * @param bindingName       the message channel name to send the request to. Example: requestReplyRepliesDemoTibrv
      * @param expectedClass     the class the response shall be mapped to
-     * @param timeoutPeriod     the timeout when to give up waiting for a response
+     * @param timeoutPeriod     the timeout when to give up waiting for a response, also set as the Solace time-to-live of the request
      * @param additionalHeaders additional headers to be added to the request message
      * @return a {@link Flux} which can be used to receive responses
      */
@@ -236,7 +236,7 @@ public interface RequestReplyService {
      * @param request            the request to be sent
      * @param requestDestination the topic name to send the request to. Example: my.supper.topic
      * @param expectedClass      the class the response shall be mapped to
-     * @param timeoutPeriod      the timeout when to give up waiting for a response
+     * @param timeoutPeriod      the timeout when to give up waiting for a response, also set as the Solace time-to-live of the request
      * @return a {@link Flux} which can be used to receive responses
      */
     default <Q, A> Flux<A> requestReplyToTopicReactive(
@@ -258,7 +258,7 @@ public interface RequestReplyService {
      * @param request            the request to be sent
      * @param requestDestination the topic name to send the request to. Example: my.supper.topic
      * @param expectedClass      the class the response shall be mapped to
-     * @param timeoutPeriod      the timeout when to give up waiting for a response
+     * @param timeoutPeriod      the timeout when to give up waiting for a response, also set as the Solace time-to-live of the request
      * @param additionalHeaders  additional headers to be added to the request message
      * @return a {@link Flux} which can be used to receive responses
      */

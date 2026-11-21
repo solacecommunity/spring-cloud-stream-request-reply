@@ -39,7 +39,8 @@ src/main/java/community/solace/spring/cloud/requestreply/
 │   ├── header/
 │   │   ├── RequestReplyMessageHeaderSupportService.java  # responder-side wrap/wrapList/wrapFlux helpers
 │   │   └── parser/                         # ordered Message/MessageHeaders parsers (correlationId,
-│   │       │                               #   destination, replyTo, replyIndex, totalReplies, errorMessage)
+│   │       │                               #   destination, replyTo, replyIndex, totalReplies, errorMessage,
+│   │       │                               #   timeToLive)
 │   │       ├── SolaceHeaderParser.java   SpringHeaderParser.java   HttpHeaderParser.java   ...
 │   ├── logging/                            # RequestReplyLogger + DefaultRequestReplyLogger
 │   └── messageinterceptor/                 # RequestSendingInterceptor, ReplyWrappingInterceptor
@@ -49,7 +50,7 @@ src/main/java/community/solace/spring/cloud/requestreply/
 │   ├── logging/LoggerAutoConfiguration.java
 │   └── messageinterceptor/                 # Noop*Interceptor beans + MessageInterceptorAutoConfiguration
 ├── env/                                    # ${replyTopicWithWildcards|...} property source
-├── util/                                   # MessageChunker, CheckedExceptionWrapper
+├── util/                                   # MessageChunker, CheckedExceptionWrapper, MessageTimeToLive
 └── exception/                              # RequestReplyException
 src/main/resources/META-INF/
 ├── spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports  # auto-config registration
@@ -118,7 +119,9 @@ Invariants the wrappers must preserve:
   to close the stream,
 - forward a matching `applicationException` as an error reply (`errorMessage` header) which the requester
   surfaces as `RemoteErrorException` (or an errored `Flux`),
-- copy any headers listed in `copyHeadersOnWrap`.
+- copy any headers listed in `copyHeadersOnWrap`,
+- set `solace_timeToLive` on every reply, the terminal and error replies included, to what is left of the
+  request's time‑to‑live (see §6).
 
 **Reply routing:** for each `bindingMapping`, `RequestReplyFunctionRegistrar` registers a
 `Consumer<Message<?>>` bean named after the binding, wired to `-in-0`, delegating to
@@ -163,6 +166,12 @@ contexts (see §6). If a bean with the binding name already exists, do not overr
   messages bypass dedup. The unknown/streaming growth bound is read as a **JVM system property**
   `spring.cloud.stream.requestreply.dedup.maxBitsWhenUnknown` (via `Integer.getInteger`, default 100000) —
   it is **not** a Spring `@ConfigurationProperties` value, so it is set with `-D`, not `application.yaml`.
+- **Message time‑to‑live follows the timeout.** The requester stamps the timeout as `solace_timeToLive`; a
+  reply gets the request's time‑to‑live less the time since the request message was built on the responder,
+  so the responder's clock alone decides. `MessageTimeToLive` is the one place that writes it, and it keeps
+  three rules: never write 0 (Solace reads it as "never expire", so the minimum is 1 ms); never overwrite a
+  lifetime the message already carries; and never add a time‑to‑live next to `solace_expiration`, because
+  the Solace binder rejects a message whose two lifetime headers differ.
 - **Grouping thresholds** are load‑bearing constants: flush at 1 MB, at 10 000 messages, or after the group
   timeout (default 200 ms). Changing them affects broker behaviour and interop — do so deliberately and
   document it.
