@@ -4,13 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [6.2.0] - 2026-11-23
 ### Added
 - The request/reply timeout is now also the Solace time-to-live (`solace_timeToLive`) of the messages, so a request nobody answered in time, or a reply that comes too late, no longer waits on a persistent queue to be processed after the requester gave up. A request gets the timeout, kept between 1 ms and ten years; a reply built by the `wrap*` helpers gets the time-to-live of the request. A message that already carries `solace_timeToLive` or `solace_expiration` keeps its own lifetime, because the two must never both be set. ([#84](https://github.com/solacecommunity/spring-cloud-stream-request-reply/issues/84))
 
 ### Changed
 - Requests and replies now expire on a queue that respects the time-to-live. An application that relied on a responder working through requests after the requester gave up has to pass `solace_timeToLive` = `0L` in `additionalHeaders`, which sends a request that never expires. An expired message moves to the queue's dead message queue if there is one, because the Solace binder marks messages DMQ-eligible by default. ([#84](https://github.com/solacecommunity/spring-cloud-stream-request-reply/issues/84))
 - A `solace_timeToLive` in a binding's producer `defaultHeader` is now overridden by the library's time-to-live; set it in `additionalHeaders` or an interceptor instead. ([#84](https://github.com/solacecommunity/spring-cloud-stream-request-reply/issues/84))
+- Updated templating-maven-plugin from 3.1.1 to 3.2.0, build-helper-maven-plugin from 3.7.0 to 3.8.0 and flatten-maven-plugin from 1.8.0 to 1.9.0
 
 ## [6.1.5] - 2026-11-13
 ### Changed
